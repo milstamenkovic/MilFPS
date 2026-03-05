@@ -749,7 +749,7 @@ function loop(ts) {
   state.gameLoop = requestAnimationFrame(loop);
 }
 
-// ─── WEBCAM + MEDIAPIPE FINGER DETECTION ─────────────────────────────────────
+// ─── WEBCAM + FINGER DETECTION ───────────────────────────────────────────────
 const video = document.getElementById('webcam');
 const procCanvas = document.getElementById('processingCanvas');
 const procCtx = procCanvas.getContext('2d');
@@ -757,178 +757,108 @@ const camPreviewVideo = document.getElementById('cam-preview-video');
 const fingerDot = document.getElementById('finger-dot');
 const trackingStatus = document.getElementById('tracking-status');
 
-// MediaPipe landmark index 8 = index fingertip
-// We also use landmark 7 (DIP joint) to determine pointing direction
-// and project the tip further along that vector for accuracy
+// Simple skin-color + skin blob tracking
+// We look for the brightest/most protruding region that's skin-toned
+// and treat it as the fingertip
 
-let mpHands = null;
-let mpCamera = null;
-let mediaPipeReady = false;
+let fingerHistory = [];
+const HISTORY_LEN = 5;
 
-// Smoothing
-let smoothX = -1, smoothY = -1;
-const SMOOTH = 0.25; // lower = smoother but more lag
+function processWebcam() {
+  if (!video.readyState || video.readyState < 2) return;
 
-// Draw hand skeleton on the mini preview canvas
-const previewCanvas = document.createElement('canvas');
-previewCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);';
-document.getElementById('cam-preview').appendChild(previewCanvas);
-const previewCtx = previewCanvas.getContext('2d');
+  const W = procCanvas.width;
+  const H = procCanvas.height;
 
-function onMediaPipeResults(results) {
-  // Draw mirrored video frame on preview
-  const pw = previewCanvas.width = document.getElementById('cam-preview').offsetWidth;
-  const ph = previewCanvas.height = document.getElementById('cam-preview').offsetHeight;
-  previewCtx.clearRect(0, 0, pw, ph);
-  previewCtx.drawImage(results.image, 0, 0, pw, ph);
+  // Flip horizontally (mirror)
+  procCtx.save();
+  procCtx.scale(-1, 1);
+  procCtx.drawImage(video, -W, 0, W, H);
+  procCtx.restore();
 
-  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+  const imageData = procCtx.getImageData(0, 0, W, H);
+  const data = imageData.data;
+
+  // Find skin pixels and track topmost cluster (fingertip pointing up)
+  // Skin color range in RGB:
+  // R > 95, G > 40, B > 20
+  // max(R,G,B) - min(R,G,B) > 15
+  // R > G, R > B
+  // |R-G| > 15
+
+  let skinPixels = [];
+
+  for (let y = 0; y < H; y += 2) {
+    for (let x = 0; x < W; x += 2) {
+      const idx = (y * W + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+      if (isSkin(r, g, b)) {
+        skinPixels.push({ x, y });
+      }
+    }
+  }
+
+  if (skinPixels.length < 40) {
+    // Not enough skin found
     state.fingerX = -1;
     state.fingerY = -1;
     fingerDot.style.display = 'none';
-    trackingStatus.textContent = 'TRACKING: NO HAND';
+    trackingStatus.textContent = 'TRACKING: NO TARGET';
     return;
   }
 
-  // Use first hand detected
-  const landmarks = results.multiHandLandmarks[0];
+  // Find the topmost (lowest y) skin pixel — that's the fingertip
+  skinPixels.sort((a, b) => a.y - b.y);
 
-  // Draw skeleton on preview
-  drawHandSkeleton(landmarks, pw, ph);
-
-  // Landmark 8 = index fingertip, landmark 6 = index PIP joint
-  // Mirror x because webcam is mirrored (landmark x is 0-1, left-to-right of camera)
-  const tip = landmarks[8];
-  const pip = landmarks[6]; // two joints back for direction vector
-
-  // Mirror x: camera sees mirror image, so flip x
-  const tipX = 1 - tip.x;
-  const tipY = tip.y;
-
-  // Direction vector from PIP → tip (both mirrored)
-  const dirX = tipX - (1 - pip.x);
-  const dirY = tipY - pip.y;
-
-  // Project fingertip slightly further along pointing direction
-  // This compensates for the physical offset between fingertip and where it "points"
-  const extend = 0.04;
-  const len = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
-  const projX = tipX + (dirX / len) * extend;
-  const projY = tipY + (dirY / len) * extend;
-
-  // Map to screen coords
-  const rawX = projX * canvas.width;
-  const rawY = projY * canvas.height;
-
-  // Exponential smoothing
-  if (smoothX < 0) { smoothX = rawX; smoothY = rawY; }
-  smoothX += (rawX - smoothX) * SMOOTH;
-  smoothY += (rawY - smoothY) * SMOOTH;
-
-  state.fingerX = smoothX;
-  state.fingerY = smoothY;
-
-  trackingStatus.textContent = `TRACKING: LOCKED`;
-
-  // Finger dot on preview (note: preview has scaleX(-1) via canvas transform above)
-  fingerDot.style.display = 'none'; // hidden — we draw on previewCanvas instead
-}
-
-function drawHandSkeleton(landmarks, pw, ph) {
-  // Connections for a basic hand skeleton
-  const connections = [
-    [0,1],[1,2],[2,3],[3,4],       // thumb
-    [0,5],[5,6],[6,7],[7,8],       // index
-    [0,9],[9,10],[10,11],[11,12],  // middle
-    [0,13],[13,14],[14,15],[15,16],// ring
-    [0,17],[17,18],[18,19],[19,20],// pinky
-    [5,9],[9,13],[13,17]           // palm
-  ];
-
-  previewCtx.save();
-
-  // Draw bones
-  previewCtx.strokeStyle = 'rgba(0,255,136,0.6)';
-  previewCtx.lineWidth = 1.5;
-  for (const [a, b] of connections) {
-    const lA = landmarks[a], lB = landmarks[b];
-    // mirror x
-    previewCtx.beginPath();
-    previewCtx.moveTo((1 - lA.x) * pw, lA.y * ph);
-    previewCtx.lineTo((1 - lB.x) * pw, lB.y * ph);
-    previewCtx.stroke();
+  // Take average of top cluster
+  const topN = Math.min(20, Math.floor(skinPixels.length * 0.05) + 5);
+  let cx = 0, cy = 0;
+  for (let i = 0; i < topN; i++) {
+    cx += skinPixels[i].x;
+    cy += skinPixels[i].y;
   }
+  cx /= topN;
+  cy /= topN;
 
-  // Draw joints
-  for (let i = 0; i < landmarks.length; i++) {
-    const lm = landmarks[i];
-    const x = (1 - lm.x) * pw;
-    const y = lm.y * ph;
-    previewCtx.beginPath();
-    previewCtx.arc(x, y, i === 8 ? 5 : 2, 0, Math.PI * 2);
-    previewCtx.fillStyle = i === 8 ? '#ffaa00' : 'rgba(0,255,136,0.8)';
-    previewCtx.shadowColor = i === 8 ? '#ffaa00' : '#00ff88';
-    previewCtx.shadowBlur = i === 8 ? 10 : 4;
-    previewCtx.fill();
-  }
+  // Add to history for smoothing
+  fingerHistory.push({ x: cx, y: cy });
+  if (fingerHistory.length > HISTORY_LEN) fingerHistory.shift();
 
-  previewCtx.restore();
+  let sx = 0, sy = 0;
+  for (const p of fingerHistory) { sx += p.x; sy += p.y; }
+  sx /= fingerHistory.length;
+  sy /= fingerHistory.length;
+
+  // Map from webcam space (mirrored) to screen space
+  // cx is in [0, W], cy in [0, H]
+  // Map to full screen
+  const screenX = (sx / W) * canvas.width;
+  const screenY = (sy / H) * canvas.height;
+
+  state.fingerX = screenX;
+  state.fingerY = screenY;
+
+  trackingStatus.textContent = `TRACKING: LOCKED [${Math.round(screenX)}, ${Math.round(screenY)}]`;
+
+  // Show on preview
+  const previewPct = { x: (sx / W) * 100, y: (sy / H) * 100 };
+  fingerDot.style.left = previewPct.x + '%';
+  fingerDot.style.top = previewPct.y + '%';
+  fingerDot.style.display = 'block';
 }
 
-async function initMediaPipe() {
-  trackingStatus.textContent = 'TRACKING: LOADING ML MODEL...';
-
-  return new Promise((resolve, reject) => {
-    // Load MediaPipe Hands from CDN
-    const script1 = document.createElement('script');
-    script1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js';
-    script1.crossOrigin = 'anonymous';
-
-    const script2 = document.createElement('script');
-    script2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js';
-    script2.crossOrigin = 'anonymous';
-
-    script1.onload = () => {
-      document.head.appendChild(script2);
-    };
-
-    script2.onload = () => {
-      try {
-        mpHands = new Hands({
-          locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
-        });
-
-        mpHands.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.6,
-        });
-
-        mpHands.onResults(onMediaPipeResults);
-
-        mpHands.initialize().then(() => {
-          mediaPipeReady = true;
-          trackingStatus.textContent = 'TRACKING: ML READY';
-          resolve();
-        }).catch(reject);
-      } catch(e) { reject(e); }
-    };
-
-    script1.onerror = script2.onerror = reject;
-    document.head.appendChild(script1);
-  });
-}
-
-// Send frames to MediaPipe from rAF loop
-let frameCount = 0;
-function processWebcam() {
-  if (!mediaPipeReady || !video.readyState || video.readyState < 2) return;
-  // Send every 2nd frame to MediaPipe to keep game loop fast
-  frameCount++;
-  if (frameCount % 2 !== 0) return;
-  mpHands.send({ image: video }).catch(() => {});
+function isSkin(r, g, b) {
+  // HSV-like skin detection
+  const maxC = Math.max(r, g, b);
+  const minC = Math.min(r, g, b);
+  return (
+    r > 95 && g > 40 && b > 20 &&
+    maxC - minC > 15 &&
+    Math.abs(r - g) > 15 &&
+    r > g && r > b &&
+    r > 100
+  );
 }
 
 // ─── TIMER ───────────────────────────────────────────────────────────────────
@@ -973,7 +903,7 @@ async function startGame() {
   // Request camera
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: 640, height: 480 }
+      video: { facingMode: 'user', width: 320, height: 240 }
     });
     state.stream = stream;
     video.srcObject = stream;
@@ -985,23 +915,6 @@ async function startGame() {
     return;
   }
 
-  // Load MediaPipe on first start
-  if (!mediaPipeReady) {
-    const btn = document.getElementById('start-btn');
-    btn.textContent = 'LOADING ML MODEL...';
-    btn.disabled = true;
-    try {
-      await initMediaPipe();
-    } catch(e) {
-      alert('Failed to load hand tracking model. Check your internet connection.');
-      btn.textContent = 'INITIALIZE CAMERA';
-      btn.disabled = false;
-      return;
-    }
-    btn.textContent = 'INITIALIZE CAMERA';
-    btn.disabled = false;
-  }
-
   // Reset
   state.running = true;
   state.redShot = 0;
@@ -1011,7 +924,7 @@ async function startGame() {
   state.fingerY = -1;
   state.lastSpawn = 0;
   state.spawnInterval = 2500;
-  smoothX = -1; smoothY = -1;
+  fingerHistory = [];
 
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('results-screen').classList.add('hidden');
