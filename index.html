@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MilFPS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #ff2020;
+    --green: #00ff88;
+    --amber: #ffaa00;
+    --bg: #000;
+    --grid: rgba(0,255,136,0.04);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #gameCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Hidden video feed from camera */
+  #webcam {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 320px;
+    height: 240px;
+  }
+
+  /* Hidden canvas for processing webcam frames */
+  #processingCanvas {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 320px;
+    height: 240px;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  #hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .hud-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hud-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+
+  .hud-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    text-shadow: 0 0 20px currentColor;
+  }
+
+  .hud-value.red { color: var(--red); text-shadow: 0 0 20px var(--red); }
+  .hud-value.green { color: var(--green); text-shadow: 0 0 20px var(--green); }
+  .hud-value.amber { color: var(--amber); text-shadow: 0 0 20px var(--amber); }
+
+  #timer-bar-container {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    position: relative;
+  }
+
+  #timer-bar {
+    height: 100%;
+    background: var(--green);
+    width: 100%;
+    transition: background 0.3s;
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  /* Crosshair */
+  #crosshair {
+    position: fixed;
+    pointer-events: none;
+    z-index: 20;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+
+  #crosshair svg {
+    filter: drop-shadow(0 0 6px var(--amber));
+  }
+
+  /* Camera preview (mini) */
+  #cam-preview {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 160px;
+    height: 120px;
+    border: 1px solid rgba(0,255,136,0.3);
+    z-index: 15;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #cam-preview-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.7;
+  }
+
+  #cam-preview-overlay {
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(0,255,136,0.2);
+    display: flex;
+    align-items: flex-end;
+    padding: 4px 6px;
+  }
+
+  #cam-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    opacity: 0.5;
+  }
+
+  /* Finger dot on preview */
+  #finger-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--amber);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px var(--amber);
+    display: none;
+    pointer-events: none;
+  }
+
+  /* Overlay screens */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    background: rgba(0,0,0,0.92);
+  }
+
+  .screen.hidden { display: none; }
+
+  .screen-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    animation: flicker 4s infinite;
+  }
+
+  @keyframes flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity: 1; }
+    20%,24%,55% { opacity: 0.6; }
+  }
+
+  .screen-sub {
+    font-size: 11px;
+    letter-spacing: 4px;
+    opacity: 0.4;
+    margin-bottom: 48px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 4px;
+    padding: 14px 36px;
+    border: 1px solid var(--green);
+    background: transparent;
+    color: var(--green);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s;
+    z-index: -1;
+  }
+
+  .btn:hover { color: #000; }
+  .btn:hover::before { transform: scaleX(1); }
+
+  /* Results screen */
+  #results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin: 32px 0 48px;
+    min-width: 360px;
+  }
+
+  .result-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .result-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .result-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+
+  /* Status bar */
+  #status {
+    position: fixed;
+    bottom: 28px;
+    left: 28px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    opacity: 0.35;
+    z-index: 15;
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #tracking-status {
+    color: var(--amber);
+  }
+
+  /* Hit flash */
+  .hit-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+    opacity: 0;
+    animation: hitFlash 0.15s ease-out forwards;
+  }
+
+  @keyframes hitFlash {
+    0% { opacity: 0.3; }
+    100% { opacity: 0; }
+  }
+
+  /* Score popup */
+  .score-popup {
+    position: fixed;
+    pointer-events: none;
+    z-index: 25;
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    animation: popUp 0.7s ease-out forwards;
+  }
+
+  @keyframes popUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
+  }
+
+  .instructions {
+    margin-bottom: 32px;
+    text-align: center;
+    max-width: 480px;
+  }
+  .instructions p {
+    font-size: 11px;
+    letter-spacing: 2px;
+    line-height: 2;
+    opacity: 0.55;
+    text-transform: uppercase;
+  }
+  .instructions .highlight {
+    color: var(--amber);
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- Webcam input (hidden) -->
+<video id="webcam" autoplay muted playsinline></video>
+<canvas id="processingCanvas"></canvas>
+
+<!-- Game canvas -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- Crosshair cursor -->
+<div id="crosshair">
+  <svg width="48" height="48" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="18" fill="none" stroke="#ffaa00" stroke-width="1" opacity="0.7"/>
+    <circle cx="24" cy="24" r="3" fill="#ffaa00"/>
+    <line x1="24" y1="2" x2="24" y2="14" stroke="#ffaa00" stroke-width="1.5"/>
+    <line x1="24" y1="34" x2="24" y2="46" stroke="#ffaa00" stroke-width="1.5"/>
+    <line x1="2" y1="24" x2="14" y2="24" stroke="#ffaa00" stroke-width="1.5"/>
+    <line x1="34" y1="24" x2="46" y2="24" stroke="#ffaa00" stroke-width="1.5"/>
+  </svg>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-top">
+    <div class="hud-block">
+      <div class="hud-label">Eliminated</div>
+      <div class="hud-value red" id="score-red">00</div>
+    </div>
+    <div class="hud-block" style="align-items:center">
+      <div class="hud-label">Time Remaining</div>
+      <div class="hud-value amber" id="timer-display">60</div>
+    </div>
+    <div class="hud-block" style="align-items:flex-end">
+      <div class="hud-label">Friendly Fire</div>
+      <div class="hud-value green" id="score-green">00</div>
+    </div>
+  </div>
+  <div id="timer-bar-container">
+    <div id="timer-bar"></div>
+  </div>
+</div>
+
+<!-- Camera preview -->
+<div id="cam-preview">
+  <video id="cam-preview-video" autoplay muted playsinline></video>
+  <div id="finger-dot"></div>
+  <div id="cam-preview-overlay">
+    <span id="cam-label">CAM FEED</span>
+  </div>
+</div>
+
+<!-- Status -->
+<div id="status">
+  <span id="tracking-status">TRACKING: INITIALIZING...</span>
+  <span id="circles-status">TARGETS: 0</span>
+</div>
+
+<!-- START SCREEN -->
+<div class="screen" id="start-screen">
+  <div style="color: var(--red);">MilFPS - Mil Finger Point Shooter</div>
+  <div class="screen-title" style="color:var(--green);">FINGER</div>
+  <div class="screen-title" style="color: blue; margin-top:-20px">SHOOTER</div>
+  <div class="screen-sub">Point your finger to eliminate targets</div>
+  <div class="instructions">
+    <p><span class="highlight">RED CIRCLES</span> — eliminate them</p>
+    <p><span class="highlight">GREEN CIRCLES</span> — avoid friendly fire</p>
+    <p>Point your index finger at the screen</p>
+    <p>Camera tracks your fingertip position</p>
+    <p>You have <span class="highlight">60 SECONDS</span></p>
+  </div>
+  <button class="btn" id="start-btn">INITIALIZE CAMERA</button>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div class="screen hidden" id="results-screen">
+  <div class="screen-title" style="color:var(--amber)">MISSION</div>
+  <div class="screen-title" style="margin-top:-20px">COMPLETE</div>
+  <div id="results-grid">
+    <div class="result-block">
+      <div class="result-num red" id="final-red">0</div>
+      <div class="result-label">Hostiles Down</div>
+    </div>
+    <div class="result-block">
+      <div class="result-num green" id="final-green">0</div>
+      <div class="result-label">Friendly Fire</div>
+    </div>
+  </div>
+  <div id="accuracy-line" style="margin-bottom:32px; font-size:11px; letter-spacing:3px; opacity:0.6"></div>
+  <button class="btn" id="restart-btn">PLAY AGAIN</button>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const state = {
+  running: false,
+  timeLeft: 60,
+  redShot: 0,
+  greenShot: 0,
+  circles: [],
+  fingerX: -1,
+  fingerY: -1,
+  lastSpawn: 0,
+  spawnInterval: 2500,
+  timerInterval: null,
+  gameLoop: null,
+  stream: null,
+};
+
+// ─── CANVAS SETUP ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── CIRCLES ─────────────────────────────────────────────────────────────────
+function spawnCircle() {
+  const maxCircles = Math.min(5 + Math.floor((60 - state.timeLeft) / 8), 18);
+  if (state.circles.length >= maxCircles) return;
+
+  const r = 22 + Math.random() * 18;
+  const margin = 80;
+  const x = margin + Math.random() * (canvas.width - margin * 2);
+  const y = margin + Math.random() * (canvas.height - margin * 2);
+
+  const speed = 0.8 + Math.random() * 1.4;
+  const angle = Math.random() * Math.PI * 2;
+
+  state.circles.push({
+    x, y, r,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    type: Math.random() < 0.6 ? 'red' : 'green',
+    opacity: 0,
+    wobble: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.02 + Math.random() * 0.03,
+    pulsePhase: Math.random() * Math.PI * 2,
+  });
+}
+
+function updateCircles(ts) {
+  // Spawn
+  if (ts - state.lastSpawn > state.spawnInterval) {
+    const count = Math.floor(Math.random() * 2) + 1;
+    for (let i = 0; i < count; i++) spawnCircle();
+    state.lastSpawn = ts;
+    state.spawnInterval = Math.max(800, 2500 - (60 - state.timeLeft) * 30);
+  }
+
+  for (const c of state.circles) {
+    // Fade in
+    c.opacity = Math.min(1, c.opacity + 0.04);
+    c.wobble += c.wobbleSpeed;
+    c.pulsePhase += 0.05;
+
+    c.x += c.vx + Math.sin(c.wobble) * 0.4;
+    c.y += c.vy + Math.cos(c.wobble * 0.7) * 0.3;
+
+    // Bounce
+    if (c.x - c.r < 0) { c.x = c.r; c.vx = Math.abs(c.vx); }
+    if (c.x + c.r > canvas.width) { c.x = canvas.width - c.r; c.vx = -Math.abs(c.vx); }
+    if (c.y - c.r < 0) { c.y = c.r; c.vy = Math.abs(c.vy); }
+    if (c.y + c.r > canvas.height) { c.y = canvas.height - c.r; c.vy = -Math.abs(c.vy); }
+  }
+}
+
+function drawCircles() {
+  for (const c of state.circles) {
+    const pulse = 1 + Math.sin(c.pulsePhase) * 0.06;
+    const r = c.r * pulse;
+    const color = c.type === 'red' ? '#ff2020' : '#00ff88';
+    const glowColor = c.type === 'red' ? 'rgba(255,32,32,' : 'rgba(0,255,136,';
+
+    ctx.save();
+    ctx.globalAlpha = c.opacity;
+
+    // Outer glow
+    const grad = ctx.createRadialGradient(c.x, c.y, r * 0.3, c.x, c.y, r * 2.2);
+    grad.addColorStop(0, glowColor + '0.18)');
+    grad.addColorStop(1, glowColor + '0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Circle body
+    const bodyGrad = ctx.createRadialGradient(c.x - r * 0.3, c.y - r * 0.3, 0, c.x, c.y, r);
+    bodyGrad.addColorStop(0, c.type === 'red' ? '#ff8080' : '#80ffcc');
+    bodyGrad.addColorStop(0.5, color);
+    bodyGrad.addColorStop(1, c.type === 'red' ? '#660000' : '#004433');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rim
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+
+    // Inner highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath();
+    ctx.arc(c.x - r * 0.28, c.y - r * 0.28, r * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+// ─── HIT DETECTION ───────────────────────────────────────────────────────────
+function checkHits(fx, fy) {
+  if (fx < 0 || fy < 0) return;
+
+  for (let i = state.circles.length - 1; i >= 0; i--) {
+    const c = state.circles[i];
+    const dx = fx - c.x;
+    const dy = fy - c.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < c.r && c.opacity > 0.5) {
+      // HIT!
+      showExplosion(c.x, c.y, c.type);
+      showScorePopup(c.x, c.y, c.type);
+      flashScreen(c.type);
+
+      if (c.type === 'red') state.redShot++;
+      else state.greenShot++;
+
+      state.circles.splice(i, 1);
+      updateScoreDisplay();
+      break; // one hit per frame
+    }
+  }
+}
+
+// ─── VISUAL EFFECTS ──────────────────────────────────────────────────────────
+const particles = [];
+
+function showExplosion(x, y, type) {
+  const color = type === 'red' ? '#ff2020' : '#00ff88';
+  const count = 16;
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const speed = 2 + Math.random() * 5;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.04 + Math.random() * 0.04,
+      r: 2 + Math.random() * 5,
+      color,
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.93;
+    p.vy *= 0.93;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function flashScreen(type) {
+  const flash = document.createElement('div');
+  flash.className = 'hit-flash';
+  flash.style.background = type === 'red' ? 'rgba(255,0,0,1)' : 'rgba(0,255,100,1)';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 200);
+}
+
+function showScorePopup(x, y, type) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.color = type === 'red' ? '#ff2020' : '#00ff88';
+  el.textContent = type === 'red' ? '−TARGET' : '×FRIENDLY';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+// ─── DRAW CROSSHAIR ON GAME CANVAS ──────────────────────────────────────────
+function drawFingerCrosshair(fx, fy) {
+  if (fx < 0) return;
+  const t = Date.now() * 0.003;
+  const pulse = 1 + Math.sin(t * 2) * 0.15;
+
+  ctx.save();
+  ctx.strokeStyle = '#ffaa00';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = '#ffaa00';
+  ctx.shadowBlur = 14;
+  ctx.globalAlpha = 0.85;
+
+  const r = 20 * pulse;
+  ctx.beginPath();
+  ctx.arc(fx, fy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Cross lines
+  const gap = 6, len = 14;
+  ctx.beginPath();
+  ctx.moveTo(fx, fy - r - gap - len); ctx.lineTo(fx, fy - r - gap);
+  ctx.moveTo(fx, fy + r + gap); ctx.lineTo(fx, fy + r + gap + len);
+  ctx.moveTo(fx - r - gap - len, fy); ctx.lineTo(fx - r - gap, fy);
+  ctx.moveTo(fx + r + gap, fy); ctx.lineTo(fx + r + gap + len, fy);
+  ctx.stroke();
+
+  // Center dot
+  ctx.fillStyle = '#ffaa00';
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(fx, fy, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ─── GRID BACKGROUND ─────────────────────────────────────────────────────────
+function drawGrid() {
+  const spacing = 60;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,255,136,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += spacing) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += spacing) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── MAIN LOOP ───────────────────────────────────────────────────────────────
+let lastTs = 0;
+function loop(ts) {
+  if (!state.running) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  updateCircles(ts);
+  drawCircles();
+  updateParticles();
+  drawParticles();
+
+  // Process webcam and get finger position
+  processWebcam();
+  drawFingerCrosshair(state.fingerX, state.fingerY);
+  checkHits(state.fingerX, state.fingerY);
+
+  // Update status
+  document.getElementById('circles-status').textContent = `TARGETS: ${state.circles.length}`;
+
+  state.gameLoop = requestAnimationFrame(loop);
+}
+
+// ─── WEBCAM + FINGER DETECTION ───────────────────────────────────────────────
+const video = document.getElementById('webcam');
+const procCanvas = document.getElementById('processingCanvas');
+const procCtx = procCanvas.getContext('2d');
+const camPreviewVideo = document.getElementById('cam-preview-video');
+const fingerDot = document.getElementById('finger-dot');
+const trackingStatus = document.getElementById('tracking-status');
+
+// Simple skin-color + skin blob tracking
+// We look for the brightest/most protruding region that's skin-toned
+// and treat it as the fingertip
+
+let fingerHistory = [];
+const HISTORY_LEN = 5;
+
+function processWebcam() {
+  if (!video.readyState || video.readyState < 2) return;
+
+  const W = procCanvas.width;
+  const H = procCanvas.height;
+
+  // Flip horizontally (mirror)
+  procCtx.save();
+  procCtx.scale(-1, 1);
+  procCtx.drawImage(video, -W, 0, W, H);
+  procCtx.restore();
+
+  const imageData = procCtx.getImageData(0, 0, W, H);
+  const data = imageData.data;
+
+  // Find skin pixels and track topmost cluster (fingertip pointing up)
+  // Skin color range in RGB:
+  // R > 95, G > 40, B > 20
+  // max(R,G,B) - min(R,G,B) > 15
+  // R > G, R > B
+  // |R-G| > 15
+
+  let skinPixels = [];
+
+  for (let y = 0; y < H; y += 2) {
+    for (let x = 0; x < W; x += 2) {
+      const idx = (y * W + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+      if (isSkin(r, g, b)) {
+        skinPixels.push({ x, y });
+      }
+    }
+  }
+
+  if (skinPixels.length < 40) {
+    // Not enough skin found
+    state.fingerX = -1;
+    state.fingerY = -1;
+    fingerDot.style.display = 'none';
+    trackingStatus.textContent = 'TRACKING: NO TARGET';
+    return;
+  }
+
+  // Find the topmost (lowest y) skin pixel — that's the fingertip
+  skinPixels.sort((a, b) => a.y - b.y);
+
+  // Take average of top cluster
+  const topN = Math.min(20, Math.floor(skinPixels.length * 0.05) + 5);
+  let cx = 0, cy = 0;
+  for (let i = 0; i < topN; i++) {
+    cx += skinPixels[i].x;
+    cy += skinPixels[i].y;
+  }
+  cx /= topN;
+  cy /= topN;
+
+  // Add to history for smoothing
+  fingerHistory.push({ x: cx, y: cy });
+  if (fingerHistory.length > HISTORY_LEN) fingerHistory.shift();
+
+  let sx = 0, sy = 0;
+  for (const p of fingerHistory) { sx += p.x; sy += p.y; }
+  sx /= fingerHistory.length;
+  sy /= fingerHistory.length;
+
+  // Map from webcam space (mirrored) to screen space
+  // cx is in [0, W], cy in [0, H]
+  // Map to full screen
+  const screenX = (sx / W) * canvas.width;
+  const screenY = (sy / H) * canvas.height;
+
+  state.fingerX = screenX;
+  state.fingerY = screenY;
+
+  trackingStatus.textContent = `TRACKING: LOCKED [${Math.round(screenX)}, ${Math.round(screenY)}]`;
+
+  // Show on preview
+  const previewPct = { x: (sx / W) * 100, y: (sy / H) * 100 };
+  fingerDot.style.left = previewPct.x + '%';
+  fingerDot.style.top = previewPct.y + '%';
+  fingerDot.style.display = 'block';
+}
+
+function isSkin(r, g, b) {
+  // HSV-like skin detection
+  const maxC = Math.max(r, g, b);
+  const minC = Math.min(r, g, b);
+  return (
+    r > 95 && g > 40 && b > 20 &&
+    maxC - minC > 15 &&
+    Math.abs(r - g) > 15 &&
+    r > g && r > b &&
+    r > 100
+  );
+}
+
+// ─── TIMER ───────────────────────────────────────────────────────────────────
+function startTimer() {
+  state.timeLeft = 60;
+  updateTimerDisplay();
+
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--;
+    updateTimerDisplay();
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  document.getElementById('timer-display').textContent =
+    String(state.timeLeft).padStart(2, '0');
+
+  const bar = document.getElementById('timer-bar');
+  const pct = (state.timeLeft / 60) * 100;
+  bar.style.width = pct + '%';
+
+  if (state.timeLeft <= 10) {
+    bar.style.background = '#ff2020';
+    bar.style.boxShadow = '0 0 10px #ff2020';
+    document.getElementById('timer-display').style.color = '#ff2020';
+  } else if (state.timeLeft <= 20) {
+    bar.style.background = '#ffaa00';
+    bar.style.boxShadow = '0 0 10px #ffaa00';
+  }
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-red').textContent =
+    String(state.redShot).padStart(2, '0');
+  document.getElementById('score-green').textContent =
+    String(state.greenShot).padStart(2, '0');
+}
+
+// ─── GAME CONTROL ────────────────────────────────────────────────────────────
+async function startGame() {
+  // Request camera
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 320, height: 240 }
+    });
+    state.stream = stream;
+    video.srcObject = stream;
+    camPreviewVideo.srcObject = stream;
+    await video.play();
+    await camPreviewVideo.play();
+  } catch (e) {
+    alert('Camera access required! Please allow camera permissions and try again.');
+    return;
+  }
+
+  // Reset
+  state.running = true;
+  state.redShot = 0;
+  state.greenShot = 0;
+  state.circles = [];
+  state.fingerX = -1;
+  state.fingerY = -1;
+  state.lastSpawn = 0;
+  state.spawnInterval = 2500;
+  fingerHistory = [];
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('results-screen').classList.add('hidden');
+
+  updateScoreDisplay();
+
+  // Reset timer bar colors
+  const bar = document.getElementById('timer-bar');
+  bar.style.background = 'var(--green)';
+  bar.style.boxShadow = '0 0 10px var(--green)';
+  document.getElementById('timer-display').style.color = 'var(--amber)';
+
+  // Spawn initial circles
+  for (let i = 0; i < 4; i++) spawnCircle();
+
+  startTimer();
+  requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  clearInterval(state.timerInterval);
+  cancelAnimationFrame(state.gameLoop);
+
+  // Stop camera
+  if (state.stream) {
+    state.stream.getTracks().forEach(t => t.stop());
+  }
+
+  document.getElementById('final-red').textContent = state.redShot;
+  document.getElementById('final-green').textContent = state.greenShot;
+
+  const total = state.redShot + state.greenShot;
+  const acc = total > 0 ? Math.round((state.redShot / total) * 100) : 0;
+  document.getElementById('accuracy-line').textContent =
+    `TARGET ACCURACY: ${acc}% — ${getRating(acc, state.redShot)}`;
+
+  document.getElementById('results-screen').classList.remove('hidden');
+}
+
+function getRating(acc, kills) {
+  if (kills === 0) return 'STAND DOWN';
+  if (acc === 100 && kills >= 10) return 'DEAD EYE';
+  if (acc >= 90) return 'SHARPSHOOTER';
+  if (acc >= 75) return 'MARKSMAN';
+  if (acc >= 50) return 'AVERAGE GRUNT';
+  return 'TRIGGER HAPPY';
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+</script>
+</body>
+</html>
