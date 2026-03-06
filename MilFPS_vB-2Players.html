@@ -576,8 +576,8 @@ function checkHits() {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
 
-    // green player targets red circles
-    if (c.type === 'red' && state.leftX >= 0) {
+    // Green player (left hand) — hits ANY circle
+    if (state.leftX >= 0) {
       const dx = state.leftX - c.x, dy = state.leftY - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
         hit(i, c, 'green');
@@ -585,8 +585,8 @@ function checkHits() {
       }
     }
 
-    // red player targets green circles
-    if (c.type === 'green' && state.rightX >= 0) {
+    // Red player (right hand) — hits ANY circle
+    if (state.rightX >= 0) {
       const dx = state.rightX - c.x, dy = state.rightY - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
         hit(i, c, 'red');
@@ -597,11 +597,16 @@ function checkHits() {
 }
 
 function hit(idx, c, shooter) {
+  const isKill = (shooter === 'green' && c.type === 'red') ||
+                 (shooter === 'red'   && c.type === 'green');
+
   showExplosion(c.x, c.y, c.type);
-  showScorePopup(c.x, c.y, shooter);
+  showScorePopup(c.x, c.y, shooter, isKill);
   flashScreen(c.type);
-  if (shooter === 'green') state.greenKills++;
-  else                     state.redKills++;
+
+  if (shooter === 'green') state.greenKills += isKill ? 1 : -1;
+  else                     state.redKills   += isKill ? 1 : -1;
+
   state.circles.splice(idx, 1);
   updateScoreDisplay();
 }
@@ -648,13 +653,13 @@ function flashScreen(type) {
   setTimeout(()=>el.remove(), 200);
 }
 
-function showScorePopup(x, y, shooter) {
+function showScorePopup(x, y, shooter, isKill) {
   const el = document.createElement('div');
   el.className = 'score-popup';
   el.style.left = x+'px';
   el.style.top  = y+'px';
   el.style.color = shooter === 'green' ? '#00ff88' : '#ff2020';
-  el.textContent = shooter === 'green' ? '+1 GREEN' : '+1 RED';
+  el.textContent = isKill ? `+1 ${shooter.toUpperCase()}` : `−1 FRIENDLY FIRE`;
   document.body.appendChild(el);
   setTimeout(()=>el.remove(), 700);
 }
