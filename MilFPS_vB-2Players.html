@@ -1,0 +1,1005 @@
+<!-- MilFPS - Mil Finger Point Shooter -->
+<!-- Simple short game that uses default system camera and finger to shoot RED bad guys created by Mil Stamenković -->
+<!-- Version B - Two Players Mode -->
+<!-- © 2026 Mil Stamenković -->
+<!-- Created with help of Free Claude AI -->
+<!-- Created: 05.03.2026. - Ćuprija, Serbia -->
+<!-- Revised: 07.03.2026. - Ćuprija, Serbia -->
+<!-- Published: n/n - n/n -->
+
+<!-- TO DO -->
+<!-- 1) INFO that website can't store or save or use your WEBCAM outside of game - PRIVACT STATEMENT -->
+<!-- 2) Game needs to be more snappier, faster!  -->
+<!-- 3) Sounds -->
+<!-- 4) Score table -->
+<!-- 5) Can it be SHOT only when FINGER "PULLS TRIGGER"??? -->
+<!-- ✔) 2-player game. Left and right hands. Red vs Green. -->
+ 
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MilFPS — 2 Players</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #ff2020;
+    --green: #00ff88;
+    --amber: #ffaa00;
+    --bg: #000;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #gameCanvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+
+  #webcam {
+    position: fixed; top: -9999px; left: -9999px;
+    width: 640px; height: 480px;
+  }
+  #processingCanvas {
+    position: fixed; top: -9999px; left: -9999px;
+    width: 640px; height: 480px;
+  }
+
+  /* ── HUD ── */
+  #hud {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  #hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .hud-block { display: flex; flex-direction: column; gap: 4px; }
+
+  .hud-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+
+  .hud-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    text-shadow: 0 0 20px currentColor;
+  }
+
+  .hud-value.red   { color: var(--red);   text-shadow: 0 0 20px var(--red); }
+  .hud-value.green { color: var(--green); text-shadow: 0 0 20px var(--green); }
+  .hud-value.amber { color: var(--amber); text-shadow: 0 0 20px var(--amber); }
+
+  /* player sub-label */
+  .player-tag {
+    font-size: 8px;
+    letter-spacing: 3px;
+    margin-top: 2px;
+    text-transform: uppercase;
+    opacity: 0.45;
+  }
+
+  #timer-bar-container {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+  }
+
+  #timer-bar {
+    height: 100%;
+    background: var(--green);
+    width: 100%;
+    transition: background 0.3s;
+    box-shadow: 0 0 10px currentColor;
+  }
+
+  /* ── DIVIDER LINE ── */
+  #divider {
+    position: fixed;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: rgba(255,255,255,0.06);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* ── CAMERA PREVIEW ── */
+  #cam-preview {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 200px;
+    height: 150px;
+    border: 1px solid rgba(255,255,255,0.15);
+    z-index: 15;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #cam-preview-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0.6;
+  }
+
+  #cam-preview-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    padding: 4px 6px;
+  }
+
+  #cam-label { font-size: 8px; letter-spacing: 2px; opacity: 0.4; }
+
+  /* ── STATUS ── */
+  #status {
+    position: fixed;
+    bottom: 28px; left: 28px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    opacity: 0.35;
+    z-index: 15;
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  #tracking-green { color: var(--green); }
+  #tracking-red   { color: var(--red); }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 50;
+    background: rgba(0,0,0,0.93);
+  }
+
+  .screen.hidden { display: none; }
+
+  .screen-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(32px, 5vw, 64px);
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    animation: flicker 4s infinite;
+  }
+
+  @keyframes flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; }
+    20%,24%,55% { opacity:0.6; }
+  }
+
+  .screen-sub {
+    font-size: 11px; letter-spacing: 4px;
+    opacity: 0.4; margin-bottom: 36px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; letter-spacing: 4px;
+    padding: 14px 36px;
+    border: 1px solid var(--green);
+    background: transparent; color: var(--green);
+    cursor: pointer; text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+
+  .btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--green);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.2s; z-index: -1;
+  }
+
+  .btn:hover { color: #000; }
+  .btn:hover::before { transform: scaleX(1); }
+
+  /* ── INSTRUCTIONS ── */
+  .instructions {
+    margin-bottom: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 640px;
+  }
+
+  .player-card {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .player-card.p-green { border: 1px solid rgba(0,255,136,0.35); }
+  .player-card.p-red   { border: 1px solid rgba(255,32,32,0.35); }
+
+  .player-card .pc-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+  }
+
+  .player-card.p-green .pc-title { color: var(--green); }
+  .player-card.p-red   .pc-title { color: var(--red); }
+
+  .player-card p {
+    font-size: 10px;
+    letter-spacing: 2px;
+    line-height: 2;
+    opacity: 0.55;
+    text-transform: uppercase;
+  }
+
+  /* ── RESULTS ── */
+  #results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 28px 0 40px;
+    min-width: 420px;
+  }
+
+  .result-block {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .result-block.p-green { border-color: rgba(0,255,136,0.25); }
+  .result-block.p-red   { border-color: rgba(255,32,32,0.25); }
+
+  .result-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 52px; font-weight: 900; line-height: 1;
+  }
+
+  .result-label { font-size: 9px; letter-spacing: 3px; opacity: 0.5; text-transform: uppercase; }
+  .result-sub   { font-size: 8px; letter-spacing: 2px; opacity: 0.35; text-transform: uppercase; }
+
+  #winner-line {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; letter-spacing: 4px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+  }
+
+  /* ── HIT FLASH ── */
+  .hit-flash {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 30;
+    opacity: 0;
+    animation: hitFlash 0.15s ease-out forwards;
+  }
+
+  @keyframes hitFlash {
+    0% { opacity: 0.25; }
+    100% { opacity: 0; }
+  }
+
+  /* ── SCORE POPUP ── */
+  .score-popup {
+    position: fixed; pointer-events: none; z-index: 25;
+    font-family: 'Orbitron', monospace;
+    font-size: 16px; font-weight: 700;
+    animation: popUp 0.7s ease-out forwards;
+  }
+
+  @keyframes popUp {
+    0%   { opacity:1; transform: translateY(0) scale(1); }
+    100% { opacity:0; transform: translateY(-50px) scale(1.3); }
+  }
+
+  /* territory tint */
+  #left-tint, #right-tint {
+    position: fixed; top:0; bottom:0; width:50%;
+    pointer-events:none; z-index:2;
+  }
+  #left-tint  { left:0;   background: linear-gradient(to right, rgba(0,255,136,0.025), transparent); }
+  #right-tint { right:0;  background: linear-gradient(to left,  rgba(255,32,32,0.025),  transparent); }
+</style>
+</head>
+<body>
+
+<video id="webcam" autoplay muted playsinline></video>
+<canvas id="processingCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
+
+<!-- subtle territory tints -->
+<div id="left-tint"></div>
+<div id="right-tint"></div>
+<div id="divider"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-top">
+
+    <!-- Green player (left hand) -->
+    <div class="hud-block">
+      <div class="hud-label" style="color:var(--green)">● Green Player</div>
+      <div class="hud-value green" id="score-green-kills">00</div>
+      <div class="player-tag" style="color:var(--green)">red circles hit</div>
+    </div>
+
+    <!-- Timer centre -->
+    <div class="hud-block" style="align-items:center">
+      <div class="hud-label">Time Remaining</div>
+      <div class="hud-value amber" id="timer-display">60</div>
+    </div>
+
+    <!-- Red player (right hand) -->
+    <div class="hud-block" style="align-items:flex-end">
+      <div class="hud-label" style="color:var(--red); text-align:right">Red Player ●</div>
+      <div class="hud-value red" id="score-red-kills">00</div>
+      <div class="player-tag" style="color:var(--red)">green circles hit</div>
+    </div>
+
+  </div>
+  <div id="timer-bar-container"><div id="timer-bar"></div></div>
+</div>
+
+<!-- Camera preview -->
+<div id="cam-preview">
+  <video id="cam-preview-video" autoplay muted playsinline></video>
+  <div id="cam-preview-overlay"><span id="cam-label">CAM — BOTH HANDS</span></div>
+</div>
+
+<!-- Status -->
+<div id="status">
+  <span id="tracking-green">● GREEN: —</span>
+  <span id="tracking-red">● RED: —</span>
+  <span id="circles-status" style="opacity:0.3">TARGETS: 0</span>
+</div>
+
+<!-- START SCREEN -->
+<div class="screen" id="start-screen">
+  <div style="color:var(--red); font-size:11px; letter-spacing:3px; margin-bottom:8px; opacity:0.6">
+    MilFPS — Mil Finger Point Shooter
+  </div>
+  <div class="screen-title" style="color:var(--green)">FINGER</div>
+  <div class="screen-title" style="color:var(--red); margin-top:-20px">SHOOTER</div>
+  <div class="screen-sub">2 Players — Left Hand vs Right Hand</div>
+
+  <div class="instructions">
+    <div class="player-card p-green">
+      <div class="pc-title">Green Player</div>
+      <p>Left hand</p>
+      <p>on camera</p>
+      <p>Shoot <span style="color:var(--red)">RED</span> circles</p>
+    </div>
+    <div class="player-card p-red">
+      <div class="pc-title">Red Player</div>
+      <p>Right hand</p>
+      <p>on camera</p>
+      <p>Shoot <span style="color:var(--green)">GREEN</span> circles</p>
+    </div>
+  </div>
+
+  <button class="btn" id="start-btn">INITIALIZE CAMERA</button>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div class="screen hidden" id="results-screen">
+  <div class="screen-title" style="color:var(--amber)">GAME</div>
+  <div class="screen-title" style="margin-top:-20px">OVER</div>
+
+  <div id="results-grid">
+    <div class="result-block p-green">
+      <div class="result-num" style="color:var(--green)" id="final-green-kills">0</div>
+      <div class="result-label" style="color:var(--green)">Green Player</div>
+      <div class="result-sub">red circles shot</div>
+    </div>
+    <div class="result-block p-red">
+      <div class="result-num" style="color:var(--red)" id="final-red-kills">0</div>
+      <div class="result-label" style="color:var(--red)">Red Player</div>
+      <div class="result-sub">green circles shot</div>
+    </div>
+  </div>
+
+  <div id="winner-line"></div>
+  <button class="btn" id="restart-btn">PLAY AGAIN</button>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const state = {
+  running: false,
+  timeLeft: 60,
+  // Green player shoots RED circles; Red player shoots GREEN circles
+  greenKills: 0,   // red circles shot by green player (left hand)
+  redKills: 0,     // green circles shot by red player (right hand)
+  circles: [],
+  // Two separate finger positions
+  leftX: -1,  leftY: -1,   // green player (left hand in camera = right side of mirrored image)
+  rightX: -1, rightY: -1,  // red player
+  lastSpawn: 0,
+  spawnInterval: 2200,
+  timerInterval: null,
+  gameLoop: null,
+  stream: null,
+};
+
+// ─── CANVAS ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// ─── CIRCLES ─────────────────────────────────────────────────────────────────
+function spawnCircle() {
+  const elapsed = 60 - state.timeLeft;
+  const maxCircles = Math.min(6 + Math.floor(elapsed / 7), 20);
+  if (state.circles.length >= maxCircles) return;
+
+  const r = 20 + Math.random() * 18;
+  const margin = 80;
+  const x = margin + Math.random() * (canvas.width - margin * 2);
+  const y = margin + Math.random() * (canvas.height - margin * 2);
+  const speed = 0.9 + Math.random() * 1.5;
+  const angle = Math.random() * Math.PI * 2;
+
+  state.circles.push({
+    x, y, r,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    type: Math.random() < 0.5 ? 'red' : 'green',
+    opacity: 0,
+    wobble: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.02 + Math.random() * 0.03,
+    pulsePhase: Math.random() * Math.PI * 2,
+  });
+}
+
+function updateCircles(ts) {
+  if (ts - state.lastSpawn > state.spawnInterval) {
+    const count = Math.floor(Math.random() * 2) + 1;
+    for (let i = 0; i < count; i++) spawnCircle();
+    state.lastSpawn = ts;
+    state.spawnInterval = Math.max(700, 2200 - (60 - state.timeLeft) * 28);
+  }
+
+  for (const c of state.circles) {
+    c.opacity = Math.min(1, c.opacity + 0.05);
+    c.wobble += c.wobbleSpeed;
+    c.pulsePhase += 0.05;
+    c.x += c.vx + Math.sin(c.wobble) * 0.4;
+    c.y += c.vy + Math.cos(c.wobble * 0.7) * 0.3;
+
+    if (c.x - c.r < 0)             { c.x = c.r;              c.vx =  Math.abs(c.vx); }
+    if (c.x + c.r > canvas.width)  { c.x = canvas.width-c.r; c.vx = -Math.abs(c.vx); }
+    if (c.y - c.r < 0)             { c.y = c.r;              c.vy =  Math.abs(c.vy); }
+    if (c.y + c.r > canvas.height) { c.y = canvas.height-c.r;c.vy = -Math.abs(c.vy); }
+  }
+}
+
+function drawCircles() {
+  for (const c of state.circles) {
+    const pulse = 1 + Math.sin(c.pulsePhase) * 0.06;
+    const r = c.r * pulse;
+    const color    = c.type === 'red' ? '#ff2020' : '#00ff88';
+    const glowRGBA = c.type === 'red' ? 'rgba(255,32,32,' : 'rgba(0,255,136,';
+
+    ctx.save();
+    ctx.globalAlpha = c.opacity;
+
+    const grad = ctx.createRadialGradient(c.x, c.y, r*0.3, c.x, c.y, r*2.2);
+    grad.addColorStop(0, glowRGBA+'0.18)');
+    grad.addColorStop(1, glowRGBA+'0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r*2.2, 0, Math.PI*2); ctx.fill();
+
+    const body = ctx.createRadialGradient(c.x-r*0.3, c.y-r*0.3, 0, c.x, c.y, r);
+    body.addColorStop(0, c.type==='red' ? '#ff8080' : '#80ffcc');
+    body.addColorStop(0.5, color);
+    body.addColorStop(1, c.type==='red' ? '#660000' : '#004433');
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath(); ctx.arc(c.x-r*0.28, c.y-r*0.28, r*0.35, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+// ─── HIT DETECTION ───────────────────────────────────────────────────────────
+// Green player (left hand) shoots RED circles
+// Red player (right hand) shoots GREEN circles
+// Each hand only destroys its target color — the other color is ignored
+
+function checkHits() {
+  for (let i = state.circles.length - 1; i >= 0; i--) {
+    const c = state.circles[i];
+    if (c.opacity < 0.5) continue;
+
+    // green player targets red circles
+    if (c.type === 'red' && state.leftX >= 0) {
+      const dx = state.leftX - c.x, dy = state.leftY - c.y;
+      if (Math.sqrt(dx*dx+dy*dy) < c.r) {
+        hit(i, c, 'green');
+        continue;
+      }
+    }
+
+    // red player targets green circles
+    if (c.type === 'green' && state.rightX >= 0) {
+      const dx = state.rightX - c.x, dy = state.rightY - c.y;
+      if (Math.sqrt(dx*dx+dy*dy) < c.r) {
+        hit(i, c, 'red');
+        continue;
+      }
+    }
+  }
+}
+
+function hit(idx, c, shooter) {
+  showExplosion(c.x, c.y, c.type);
+  showScorePopup(c.x, c.y, shooter);
+  flashScreen(c.type);
+  if (shooter === 'green') state.greenKills++;
+  else                     state.redKills++;
+  state.circles.splice(idx, 1);
+  updateScoreDisplay();
+}
+
+// ─── PARTICLES ───────────────────────────────────────────────────────────────
+const particles = [];
+
+function showExplosion(x, y, type) {
+  const color = type === 'red' ? '#ff2020' : '#00ff88';
+  for (let i = 0; i < 16; i++) {
+    const angle = (i/16)*Math.PI*2;
+    const speed = 2 + Math.random()*5;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life:1, decay: 0.04+Math.random()*0.04, r: 2+Math.random()*5, color });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.93; p.vy *= 0.93;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i,1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function flashScreen(type) {
+  const el = document.createElement('div');
+  el.className = 'hit-flash';
+  el.style.background = type === 'red' ? 'rgba(255,0,0,1)' : 'rgba(0,255,100,1)';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 200);
+}
+
+function showScorePopup(x, y, shooter) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.style.left = x+'px';
+  el.style.top  = y+'px';
+  el.style.color = shooter === 'green' ? '#00ff88' : '#ff2020';
+  el.textContent = shooter === 'green' ? '+1 GREEN' : '+1 RED';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 700);
+}
+
+// ─── CROSSHAIRS ──────────────────────────────────────────────────────────────
+function drawCrosshair(fx, fy, color) {
+  if (fx < 0) return;
+  const t = Date.now() * 0.003;
+  const pulse = 1 + Math.sin(t*2)*0.15;
+  const r = 20 * pulse;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = color; ctx.shadowBlur = 14;
+  ctx.globalAlpha = 0.85;
+
+  ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI*2); ctx.stroke();
+
+  const gap=6, len=14;
+  ctx.beginPath();
+  ctx.moveTo(fx, fy-r-gap-len); ctx.lineTo(fx, fy-r-gap);
+  ctx.moveTo(fx, fy+r+gap);     ctx.lineTo(fx, fy+r+gap+len);
+  ctx.moveTo(fx-r-gap-len, fy); ctx.lineTo(fx-r-gap, fy);
+  ctx.moveTo(fx+r+gap, fy);     ctx.lineTo(fx+r+gap+len, fy);
+  ctx.stroke();
+
+  ctx.fillStyle = color; ctx.shadowBlur = 20;
+  ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ─── GRID ────────────────────────────────────────────────────────────────────
+function drawGrid() {
+  const spacing = 60;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  for (let x=0; x<canvas.width; x+=spacing) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+  }
+  for (let y=0; y<canvas.height; y+=spacing) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── MAIN LOOP ───────────────────────────────────────────────────────────────
+function loop(ts) {
+  if (!state.running) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  updateCircles(ts);
+  drawCircles();
+  updateParticles();
+  drawParticles();
+
+  processWebcam();
+  // Green crosshair for left hand, red for right hand
+  drawCrosshair(state.leftX,  state.leftY,  '#00ff88');
+  drawCrosshair(state.rightX, state.rightY, '#ff2020');
+  checkHits();
+
+  document.getElementById('circles-status').textContent = `TARGETS: ${state.circles.length}`;
+  state.gameLoop = requestAnimationFrame(loop);
+}
+
+// ─── MEDIAPIPE ───────────────────────────────────────────────────────────────
+const video = document.getElementById('webcam');
+const procCanvas = document.getElementById('processingCanvas');
+const camPreviewVideo = document.getElementById('cam-preview-video');
+
+let mpHands = null;
+let mediaPipeReady = false;
+
+let smoothLX=-1, smoothLY=-1, smoothRX=-1, smoothRY=-1;
+const SMOOTH = 0.3;
+
+// Preview overlay canvas (shows both hand skeletons)
+const previewCanvas = document.createElement('canvas');
+previewCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);';
+document.getElementById('cam-preview').appendChild(previewCanvas);
+const previewCtx = previewCanvas.getContext('2d');
+
+function onMediaPipeResults(results) {
+  const pw = previewCanvas.width  = document.getElementById('cam-preview').offsetWidth;
+  const ph = previewCanvas.height = document.getElementById('cam-preview').offsetHeight;
+  previewCtx.clearRect(0,0,pw,ph);
+  previewCtx.drawImage(results.image, 0, 0, pw, ph);
+
+  const trackG = document.getElementById('tracking-green');
+  const trackR = document.getElementById('tracking-red');
+
+  // Reset
+  state.leftX=-1; state.leftY=-1;
+  state.rightX=-1; state.rightY=-1;
+  trackG.textContent = '● GREEN: NO HAND';
+  trackR.textContent = '● RED: NO HAND';
+
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+
+  // MediaPipe reports handedness from the camera's perspective.
+  // "Left" in MediaPipe = person's RIGHT hand (camera is mirrored).
+  // We mirror x, so:
+  //   MediaPipe "Left"  → appears on RIGHT side of mirrored preview → person's RIGHT hand → Red player
+  //   MediaPipe "Right" → appears on LEFT  side of mirrored preview → person's LEFT  hand → Green player
+
+  for (let h = 0; h < results.multiHandLandmarks.length; h++) {
+    const landmarks  = results.multiHandLandmarks[h];
+    const handedness = results.multiHandedness[h].label; // "Left" or "Right" from MediaPipe
+
+    const tip = landmarks[8];
+    const pip = landmarks[6];
+
+    const tipX = 1 - tip.x;  // mirror
+    const tipY = tip.y;
+    const dirX = tipX - (1 - pip.x);
+    const dirY = tipY - pip.y;
+    const len  = Math.sqrt(dirX*dirX + dirY*dirY) || 1;
+    const extend = 0.03;
+    const projX = tipX + (dirX/len)*extend;
+    const projY = tipY + (dirY/len)*extend;
+
+    const rawX = projX * canvas.width;
+    const rawY = projY * canvas.height;
+
+    // MediaPipe "Right" = person's left hand = Green player
+    if (handedness === 'Right') {
+      if (smoothLX < 0) { smoothLX=rawX; smoothLY=rawY; }
+      smoothLX += (rawX - smoothLX) * SMOOTH;
+      smoothLY += (rawY - smoothLY) * SMOOTH;
+      state.leftX = smoothLX; state.leftY = smoothLY;
+      trackG.textContent = '● GREEN: LOCKED';
+      drawHandSkeleton(landmarks, pw, ph, '#00ff88');
+    }
+    // MediaPipe "Left" = person's right hand = Red player
+    else {
+      if (smoothRX < 0) { smoothRX=rawX; smoothRY=rawY; }
+      smoothRX += (rawX - smoothRX) * SMOOTH;
+      smoothRY += (rawY - smoothRY) * SMOOTH;
+      state.rightX = smoothRX; state.rightY = smoothRY;
+      trackR.textContent = '● RED: LOCKED';
+      drawHandSkeleton(landmarks, pw, ph, '#ff2020');
+    }
+  }
+}
+
+function drawHandSkeleton(landmarks, pw, ph, color) {
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],
+    [0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],
+    [5,9],[9,13],[13,17]
+  ];
+
+  previewCtx.save();
+  previewCtx.strokeStyle = color.replace(')', ',0.6)').replace('rgb','rgba');
+  previewCtx.lineWidth = 1.5;
+
+  // Draw a simple alpha version
+  const alphaColor = color === '#00ff88' ? 'rgba(0,255,136,0.55)' : 'rgba(255,32,32,0.55)';
+  previewCtx.strokeStyle = alphaColor;
+
+  for (const [a,b] of connections) {
+    const lA=landmarks[a], lB=landmarks[b];
+    previewCtx.beginPath();
+    previewCtx.moveTo((1-lA.x)*pw, lA.y*ph);
+    previewCtx.lineTo((1-lB.x)*pw, lB.y*ph);
+    previewCtx.stroke();
+  }
+
+  for (let i=0; i<landmarks.length; i++) {
+    const lm=landmarks[i];
+    const x=(1-lm.x)*pw, y=lm.y*ph;
+    previewCtx.beginPath();
+    previewCtx.arc(x, y, i===8?5:2, 0, Math.PI*2);
+    previewCtx.fillStyle = i===8 ? color : alphaColor;
+    previewCtx.shadowColor = color; previewCtx.shadowBlur = i===8?10:3;
+    previewCtx.fill();
+  }
+  previewCtx.restore();
+}
+
+async function initMediaPipe() {
+  document.getElementById('tracking-green').textContent = '● GREEN: LOADING...';
+
+  return new Promise((resolve, reject) => {
+    const s1 = document.createElement('script');
+    s1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js';
+    s1.crossOrigin = 'anonymous';
+
+    const s2 = document.createElement('script');
+    s2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js';
+    s2.crossOrigin = 'anonymous';
+
+    s1.onload = () => document.head.appendChild(s2);
+
+    s2.onload = () => {
+      try {
+        mpHands = new Hands({
+          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`
+        });
+
+        // maxNumHands = 2 for two-player!
+        mpHands.setOptions({
+          maxNumHands: 2,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.7,
+          minTrackingConfidence: 0.6,
+        });
+
+        mpHands.onResults(onMediaPipeResults);
+
+        mpHands.initialize().then(() => {
+          mediaPipeReady = true;
+          document.getElementById('tracking-green').textContent = '● GREEN: READY';
+          document.getElementById('tracking-red').textContent   = '● RED: READY';
+          resolve();
+        }).catch(reject);
+      } catch(e) { reject(e); }
+    };
+
+    s1.onerror = s2.onerror = reject;
+    document.head.appendChild(s1);
+  });
+}
+
+let frameCount = 0;
+function processWebcam() {
+  if (!mediaPipeReady || !video.readyState || video.readyState < 2) return;
+  frameCount++;
+  if (frameCount % 2 !== 0) return;
+  mpHands.send({ image: video }).catch(()=>{});
+}
+
+// ─── TIMER ───────────────────────────────────────────────────────────────────
+function startTimer() {
+  state.timeLeft = 60;
+  updateTimerDisplay();
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--;
+    updateTimerDisplay();
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  document.getElementById('timer-display').textContent = String(state.timeLeft).padStart(2,'0');
+  const bar = document.getElementById('timer-bar');
+  bar.style.width = (state.timeLeft/60*100)+'%';
+  if (state.timeLeft <= 10) {
+    bar.style.background = '#ff2020'; bar.style.boxShadow = '0 0 10px #ff2020';
+    document.getElementById('timer-display').style.color = '#ff2020';
+  } else if (state.timeLeft <= 20) {
+    bar.style.background = '#ffaa00'; bar.style.boxShadow = '0 0 10px #ffaa00';
+  }
+}
+
+function updateScoreDisplay() {
+  document.getElementById('score-green-kills').textContent = String(state.greenKills).padStart(2,'0');
+  document.getElementById('score-red-kills').textContent   = String(state.redKills).padStart(2,'0');
+}
+
+// ─── GAME CONTROL ────────────────────────────────────────────────────────────
+async function startGame() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'user', width:640, height:480 }
+    });
+    state.stream = stream;
+    video.srcObject = stream;
+    camPreviewVideo.srcObject = stream;
+    await video.play();
+    await camPreviewVideo.play();
+  } catch(e) {
+    alert('Camera access required!');
+    return;
+  }
+
+  if (!mediaPipeReady) {
+    const btn = document.getElementById('start-btn');
+    btn.textContent = 'LOADING ML MODEL...';
+    btn.disabled = true;
+    try { await initMediaPipe(); }
+    catch(e) {
+      alert('Failed to load hand tracking. Check your internet connection.');
+      btn.textContent = 'INITIALIZE CAMERA'; btn.disabled = false;
+      return;
+    }
+    btn.textContent = 'INITIALIZE CAMERA'; btn.disabled = false;
+  }
+
+  state.running = true;
+  state.greenKills = 0;
+  state.redKills = 0;
+  state.circles = [];
+  state.leftX=-1; state.leftY=-1;
+  state.rightX=-1; state.rightY=-1;
+  state.lastSpawn = 0;
+  state.spawnInterval = 2200;
+  smoothLX=-1; smoothLY=-1; smoothRX=-1; smoothRY=-1;
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('results-screen').classList.add('hidden');
+  updateScoreDisplay();
+
+  const bar = document.getElementById('timer-bar');
+  bar.style.background = 'var(--green)';
+  bar.style.boxShadow = '0 0 10px var(--green)';
+  document.getElementById('timer-display').style.color = 'var(--amber)';
+
+  for (let i=0; i<5; i++) spawnCircle();
+
+  startTimer();
+  requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  clearInterval(state.timerInterval);
+  cancelAnimationFrame(state.gameLoop);
+  if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
+
+  document.getElementById('final-green-kills').textContent = state.greenKills;
+  document.getElementById('final-red-kills').textContent   = state.redKills;
+
+  const winner = document.getElementById('winner-line');
+  if (state.greenKills > state.redKills) {
+    winner.textContent = '🟢 GREEN PLAYER WINS!';
+    winner.style.color = '#00ff88';
+  } else if (state.redKills > state.greenKills) {
+    winner.textContent = '🔴 RED PLAYER WINS!';
+    winner.style.color = '#ff2020';
+  } else {
+    winner.textContent = '⚡ DRAW — DEAD HEAT';
+    winner.style.color = '#ffaa00';
+  }
+
+  document.getElementById('results-screen').classList.remove('hidden');
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+</script>
+</body>
+</html>
