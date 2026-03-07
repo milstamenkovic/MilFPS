@@ -23,7 +23,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MilFPS — 2 Players</title>
+<title>MilFPS</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
@@ -411,6 +411,7 @@
 
 <!-- START SCREEN -->
 <div class="screen" id="start-screen">
+  <div class="screen-title" style="color:var(--red)">MilFPS</div>
   <div style="color:var(--red); font-size:11px; letter-spacing:3px; margin-bottom:8px; opacity:0.6">
     MilFPS — Mil Finger Point Shooter
   </div>
@@ -583,9 +584,17 @@ function checkHits() {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
 
-    // Green player (left hand) — always active
-    if (state.leftX >= 0) {
-      const dx = state.leftX - c.x, dy = state.leftY - c.y;
+    // In single player, use whichever hand is detected
+    const fx = gameMode === 1 
+      ? (state.leftX >= 0 ? state.leftX : state.rightX)
+      : state.leftX;
+    const fy = gameMode === 1 
+      ? (state.leftX >= 0 ? state.leftY : state.rightY)
+      : state.leftY;
+
+    // Green player (left hand in 2P, any hand in 1P)
+    if (fx >= 0) {
+      const dx = fx - c.x, dy = fy - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
         hit(i, c, 'green');
         continue;
