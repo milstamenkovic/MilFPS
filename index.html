@@ -583,7 +583,7 @@ function checkHits() {
   for (let i = state.circles.length - 1; i >= 0; i--) {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
-    
+
     // Left hand — always green shooter
     if (state.leftX >= 0) {
       const dx = state.leftX - c.x, dy = state.leftY - c.y;
@@ -598,15 +598,6 @@ function checkHits() {
       const dx = state.rightX - c.x, dy = state.rightY - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
         hit(i, c, gameMode === 1 ? 'green' : 'red');
-        continue;
-      }
-    }
-
-    // Red player (right hand) — only in 2 player mode
-    if (gameMode === 2 && state.rightX >= 0) {
-      const dx = state.rightX - c.x, dy = state.rightY - c.y;
-      if (Math.sqrt(dx*dx+dy*dy) < c.r) {
-        hit(i, c, 'red');
         continue;
       }
     }
