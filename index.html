@@ -583,7 +583,7 @@ function checkHits() {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
 
-    // Green player (left hand) — hits ANY circle
+    // Green player (left hand) — always active
     if (state.leftX >= 0) {
       const dx = state.leftX - c.x, dy = state.leftY - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
@@ -592,16 +592,14 @@ function checkHits() {
       }
     }
 
-    // Red player (right hand) — hits ANY circle
-    if (gameMode === 2 && state.rightX >= 0) {  
-      if (state.rightX >= 0) {
-        const dx = state.rightX - c.x, dy = state.rightY - c.y;
-        if (Math.sqrt(dx*dx+dy*dy) < c.r) {
-          hit(i, c, 'red');
-          continue;
-        }
+    // Red player (right hand) — only in 2 player mode
+    if (gameMode === 2 && state.rightX >= 0) {
+      const dx = state.rightX - c.x, dy = state.rightY - c.y;
+      if (Math.sqrt(dx*dx+dy*dy) < c.r) {
+        hit(i, c, 'red');
+        continue;
       }
-    }  
+    }
   }
 }
 
@@ -955,17 +953,27 @@ async function startGame() {
   }
 
   if (!mediaPipeReady) {
-    const btn = document.getElementById('start-btn');
-    btn.textContent = 'LOADING ML MODEL...';
-    btn.disabled = true;
+    document.getElementById('btn-1p').disabled = true;
+    document.getElementById('btn-2p').disabled = true;
+    document.getElementById('btn-1p').textContent = 'LOADING...';
+    document.getElementById('btn-2p').textContent = 'LOADING...';
     try { await initMediaPipe(); }
     catch(e) {
       alert('Failed to load hand tracking. Check your internet connection.');
-      btn.textContent = 'INITIALIZE CAMERA'; btn.disabled = false;
+      document.getElementById('btn-1p').textContent = 'SINGLE PLAYER';
+      document.getElementById('btn-2p').textContent = '2 PLAYERS';
+      document.getElementById('btn-1p').disabled = false;
+      document.getElementById('btn-2p').disabled = false;
       return;
     }
-    btn.textContent = 'INITIALIZE CAMERA'; btn.disabled = false;
-  }
+    document.getElementById('btn-1p').textContent = 'SINGLE PLAYER';
+    document.getElementById('btn-2p').textContent = '2 PLAYERS';
+    document.getElementById('btn-1p').disabled = false;
+    document.getElementById('btn-2p').disabled = false;
+  } else {
+    // Already loaded — update maxNumHands for the chosen mode
+    mpHands.setOptions({ maxNumHands: gameMode });
+  }}
 
   state.running = true;
   state.greenKills = 0;
@@ -980,6 +988,11 @@ async function startGame() {
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('results-screen').classList.add('hidden');
   updateScoreDisplay();
+
+  document.getElementById('score-red-kills').parentElement.style.visibility =
+    gameMode === 2 ? 'visible' : 'hidden';
+  document.getElementById('tracking-red').style.display =
+    gameMode === 2 ? 'block' : 'none';
 
   const bar = document.getElementById('timer-bar');
   bar.style.background = 'var(--green)';
@@ -1019,7 +1032,6 @@ function endGame() {
 document.getElementById('btn-1p').addEventListener('click', () => { gameMode = 1; startGame(); });
 document.getElementById('btn-2p').addEventListener('click', () => { gameMode = 2; startGame(); });
 document.getElementById('restart-btn').addEventListener('click', startGame); // replays same mode
-document.getElementById('score-red-kills').parentElement.style.visibility = gameMode === 2 ? 'visible' : 'hidden';
 </script>
 </body>
 </html>
