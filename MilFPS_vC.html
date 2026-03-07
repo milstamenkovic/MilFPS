@@ -583,20 +583,21 @@ function checkHits() {
   for (let i = state.circles.length - 1; i >= 0; i--) {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
-
-    // In single player, use whichever hand is detected
-    const fx = gameMode === 1 
-      ? (state.leftX >= 0 ? state.leftX : state.rightX)
-      : state.leftX;
-    const fy = gameMode === 1 
-      ? (state.leftX >= 0 ? state.leftY : state.rightY)
-      : state.leftY;
-
-    // Green player (left hand in 2P, any hand in 1P)
-    if (fx >= 0) {
-      const dx = fx - c.x, dy = fy - c.y;
+    
+    // Left hand — always green shooter
+    if (state.leftX >= 0) {
+      const dx = state.leftX - c.x, dy = state.leftY - c.y;
       if (Math.sqrt(dx*dx+dy*dy) < c.r) {
         hit(i, c, 'green');
+        continue;
+      }
+    }
+
+    // Right hand — green shooter in 1P, red shooter in 2P
+    if (state.rightX >= 0) {
+      const dx = state.rightX - c.x, dy = state.rightY - c.y;
+      if (Math.sqrt(dx*dx+dy*dy) < c.r) {
+        hit(i, c, gameMode === 1 ? 'green' : 'red');
         continue;
       }
     }
