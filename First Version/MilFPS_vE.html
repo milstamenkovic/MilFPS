@@ -15,421 +15,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/jpeg" href="/Media/MilJapaneseAvatar-Transparent-1280x1280.png">
 <title>MilFPS</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --red: #ff2020;
-    --green: #00ff88;
-    --amber: #ffaa00;
-    --bg: #000;
-  }
-
+  :root { --red: #ff2020; --green: #00ff88; --amber: #ffaa00; --bg: #000; }
   a { color: #ff0000; }
-
-  body {
-    background: var(--bg);
-    color: var(--green);
-    font-family: 'Share Tech Mono', monospace;
-    overflow: hidden;
-    height: 100vh;
-    width: 100vw;
-    user-select: none;
-  }
-
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
-    pointer-events: none; z-index: 1000;
-  }
-
-  body::after {
-    content: '';
-    position: fixed; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.75) 100%);
-    pointer-events: none; z-index: 999;
-  }
-
+  body { background: var(--bg); color: var(--green); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
+  body::before { content: ''; position: fixed; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px); pointer-events: none; z-index: 1000; }
+  body::after { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.75) 100%); pointer-events: none; z-index: 999; }
   p { color: #ffffff; }
-
   #gameCanvas { position: fixed; inset: 0; width: 100%; height: 100%; }
-
-  #webcam {
-    position: fixed; top: -9999px; left: -9999px;
-    width: 640px; height: 480px;
-  }
-  #processingCanvas {
-    position: fixed; top: -9999px; left: -9999px;
-    width: 640px; height: 480px;
-  }
-
-  /* ── HUD ── */
-  #hud {
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 10;
-    padding: 20px 28px;
-    display: flex; flex-direction: column;
-    justify-content: space-between;
-  }
-
-  #hud-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-
+  #webcam { position: fixed; top: -9999px; left: -9999px; width: 640px; height: 480px; }
+  #processingCanvas { position: fixed; top: -9999px; left: -9999px; width: 640px; height: 480px; }
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; padding: 20px 28px; display: flex; flex-direction: column; justify-content: space-between; }
+  #hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
   .hud-block { display: flex; flex-direction: column; gap: 4px; }
-
   .hud-label { font-size: 10px; letter-spacing: 3px; opacity: 0.5; text-transform: uppercase; }
-
-  .hud-value {
-    font-family: 'Orbitron', monospace;
-    font-size: 28px; font-weight: 700;
-    text-shadow: 0 0 20px currentColor;
-  }
-
+  .hud-value { font-family: 'Orbitron', monospace; font-size: 28px; font-weight: 700; text-shadow: 0 0 20px currentColor; }
   .hud-value.red   { color: var(--red);   text-shadow: 0 0 20px var(--red); }
   .hud-value.green { color: var(--green); text-shadow: 0 0 20px var(--green); }
   .hud-value.amber { color: var(--amber); text-shadow: 0 0 20px var(--amber); }
-
   .player-tag { font-size: 8px; letter-spacing: 3px; margin-top: 2px; text-transform: uppercase; opacity: 0.45; }
-
   #timer-bar-container { width: 100%; height: 3px; background: rgba(255,255,255,0.1); }
-
-  #timer-bar {
-    height: 100%; background: var(--green); width: 100%;
-    transition: background 0.3s; box-shadow: 0 0 10px currentColor;
-  }
-
-  /* ── CAMERA PREVIEW ── */
-  #cam-preview {
-    position: fixed; bottom: 28px; right: 28px;
-    width: 200px; height: 150px;
-    border: 1px solid rgba(255,255,255,0.15);
-    z-index: 15; overflow: hidden; background: #000;
-  }
-
-  #cam-preview-video {
-    width: 100%; height: 100%;
-    object-fit: cover; transform: scaleX(-1); opacity: 0.6;
-  }
-
-  #cam-preview-overlay {
-    position: absolute; inset: 0;
-    display: flex; align-items: flex-end; padding: 4px 6px;
-  }
-
+  #timer-bar { height: 100%; background: var(--green); width: 100%; transition: background 0.3s; box-shadow: 0 0 10px currentColor; }
+  #cam-preview { position: fixed; bottom: 28px; right: 28px; width: 200px; height: 150px; border: 1px solid rgba(255,255,255,0.15); z-index: 15; overflow: hidden; background: #000; }
+  #cam-preview-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.6; }
+  #cam-preview-overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 4px 6px; }
   #cam-label { font-size: 8px; letter-spacing: 2px; opacity: 0.4; }
-
-  /* ── STATUS ── */
-  #status {
-    position: fixed; bottom: 28px; left: 28px;
-    font-size: 9px; letter-spacing: 2px; opacity: 0.35;
-    z-index: 15; text-transform: uppercase;
-    display: flex; flex-direction: column; gap: 3px;
-  }
-
+  #status { position: fixed; bottom: 28px; left: 28px; font-size: 9px; letter-spacing: 2px; opacity: 0.35; z-index: 15; text-transform: uppercase; display: flex; flex-direction: column; gap: 3px; }
   #tracking-green { color: var(--green); }
   #tracking-red   { color: var(--red); }
-
-  /* ── SCREENS ── */
-  .screen {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    z-index: 50; background: rgba(0,0,0,0.93);
-  }
-
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; background: rgba(0,0,0,0.93); }
   .screen.hidden { display: none; }
-
-  .screen-title {
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(32px, 5vw, 64px);
-    font-weight: 900; letter-spacing: 8px;
-    text-transform: uppercase; margin-bottom: 8px;
-    animation: flicker 4s infinite;
-  }
-
-  @keyframes flicker {
-    0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; }
-    20%,24%,55% { opacity:0.6; }
-  }
-
-  .screen-sub {
-    font-size: 11px; letter-spacing: 4px;
-    opacity: 0.4; margin-bottom: 36px; text-transform: uppercase;
-  }
-
-  .btn {
-    font-family: 'Orbitron', monospace;
-    font-size: 13px; letter-spacing: 4px;
-    padding: 14px 36px;
-    border: 1px solid var(--green);
-    background: transparent; color: var(--green);
-    cursor: pointer; text-transform: uppercase;
-    transition: all 0.2s; position: relative; overflow: hidden;
-  }
-
-  .btn::before {
-    content: ''; position: absolute; inset: 0;
-    background: var(--green);
-    transform: scaleX(0); transform-origin: left;
-    transition: transform 0.2s; z-index: -1;
-  }
-
+  .screen-title { font-family: 'Orbitron', monospace; font-size: clamp(32px, 5vw, 64px); font-weight: 900; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 8px; animation: flicker 4s infinite; }
+  @keyframes flicker { 0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; } 20%,24%,55% { opacity:0.6; } }
+  .screen-sub { font-size: 11px; letter-spacing: 4px; opacity: 0.4; margin-bottom: 36px; text-transform: uppercase; }
+  .btn { font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 4px; padding: 14px 36px; border: 1px solid var(--green); background: transparent; color: var(--green); cursor: pointer; text-transform: uppercase; transition: all 0.2s; position: relative; overflow: hidden; }
+  .btn::before { content: ''; position: absolute; inset: 0; background: var(--green); transform: scaleX(0); transform-origin: left; transition: transform 0.2s; z-index: -1; }
   .btn:hover { color: #000; }
   .btn:hover::before { transform: scaleX(1); }
-
-  /* ── START SCREEN — fixed width wrapper for alignment ── */
-  #start-content {
-    width: 540px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .instructions {
-    width: 100%;
-    margin-bottom: 16px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
+  #start-content { width: 540px; display: flex; flex-direction: column; align-items: stretch; }
+  .instructions { width: 100%; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   .player-card { padding: 20px; text-align: center; }
   .player-card.p-green { border: 1px solid rgba(0,255,136,0.35); }
   .player-card.p-red   { border: 1px solid rgba(255,32,32,0.35); }
-
-  .player-card .pc-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 14px; font-weight: 700;
-    letter-spacing: 4px; margin-bottom: 12px;
-  }
-
+  .player-card .pc-title { font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; letter-spacing: 4px; margin-bottom: 12px; }
   .player-card.p-green .pc-title { color: var(--green); }
   .player-card.p-red   .pc-title { color: var(--red); }
-
-  .player-card p {
-    font-size: 10px; letter-spacing: 2px;
-    line-height: 2; opacity: 0.55; text-transform: uppercase;
-  }
-
-  /* Buttons sit in same grid as player cards — perfectly aligned */
-  #start-btns {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  #start-btns .btn {
-    width: 100%;
-    padding: 14px 0;
-    text-align: center;
-  }
-
-  /* ── RESULTS ── */
-  #results-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 24px; margin: 28px 0 40px; min-width: 420px;
-  }
-
-  .result-block {
-    display: flex; flex-direction: column;
-    align-items: center; gap: 8px; padding: 24px;
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-
+  .player-card p { font-size: 10px; letter-spacing: 2px; line-height: 2; opacity: 0.55; text-transform: uppercase; }
+  #start-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  #start-btns .btn { width: 100%; padding: 14px 0; text-align: center; }
+  #results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 28px 0 40px; min-width: 420px; }
+  .result-block { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px; border: 1px solid rgba(255,255,255,0.1); }
   .result-block.p-green { border-color: rgba(0,255,136,0.25); }
   .result-block.p-red   { border-color: rgba(255,32,32,0.25); }
-
   .result-num { font-family: 'Orbitron', monospace; font-size: 52px; font-weight: 900; line-height: 1; }
   .result-label { font-size: 9px; letter-spacing: 3px; opacity: 0.5; text-transform: uppercase; }
   .result-sub   { font-size: 8px; letter-spacing: 2px; opacity: 0.35; text-transform: uppercase; }
-
-  #winner-line {
-    font-family: 'Orbitron', monospace;
-    font-size: 13px; letter-spacing: 4px;
-    margin-bottom: 32px; text-transform: uppercase;
-  }
-
-  /* ── HIT FLASH ── */
-  .hit-flash {
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 30; opacity: 0;
-    animation: hitFlash 0.15s ease-out forwards;
-  }
-
-  @keyframes hitFlash {
-    0% { opacity: 0.25; }
-    100% { opacity: 0; }
-  }
-
-  /* ── SCORE POPUP ── */
-  .score-popup {
-    position: fixed; pointer-events: none; z-index: 25;
-    font-family: 'Orbitron', monospace;
-    font-size: 16px; font-weight: 700;
-    animation: popUp 0.7s ease-out forwards;
-  }
-
-  @keyframes popUp {
-    0%   { opacity:1; transform: translateY(0) scale(1); }
-    100% { opacity:0; transform: translateY(-50px) scale(1.3); }
-  }
-
-  #left-tint, #right-tint {
-    position: fixed; top:0; bottom:0; width:50%;
-    pointer-events:none; z-index:2;
-  }
+  #winner-line { font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 4px; margin-bottom: 32px; text-transform: uppercase; }
+  .hit-flash { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0; animation: hitFlash 0.15s ease-out forwards; }
+  @keyframes hitFlash { 0% { opacity: 0.25; } 100% { opacity: 0; } }
+  .score-popup { position: fixed; pointer-events: none; z-index: 25; font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 700; animation: popUp 0.7s ease-out forwards; }
+  @keyframes popUp { 0% { opacity:1; transform: translateY(0) scale(1); } 100% { opacity:0; transform: translateY(-50px) scale(1.3); } }
+  #left-tint, #right-tint { position: fixed; top:0; bottom:0; width:50%; pointer-events:none; z-index:2; }
   #left-tint  { left:0;  background: linear-gradient(to right, rgba(0,255,136,0.025), transparent); }
   #right-tint { right:0; background: linear-gradient(to left,  rgba(255,32,32,0.025),  transparent); }
-
-  /* ── INFO BUTTON ── */
-  #info-btn {
-    position: absolute; bottom: 28px; right: 28px;
-    width: 36px; height: 36px;
-    border: 1px solid #ff0000; border-radius: 50%;
-    background: transparent; color: #ff0000;
-    font-family: 'Orbitron', monospace;
-    font-size: 13px; font-weight: 700;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s; z-index: 60;
-  }
-
-  #info-btn:hover {
-    background: rgba(0,255,136,0.15);
-    border-color: var(--green); color: var(--green);
-    box-shadow: 0 0 12px rgba(0,255,136,0.3);
-  }
-
-  /* ── PRIVACY MODAL ── */
-  #privacy-modal {
-    position: fixed; inset: 0; z-index: 200;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.88); backdrop-filter: blur(4px);
-  }
-
+  #info-btn { position: absolute; bottom: 28px; right: 28px; width: 36px; height: 36px; border: 1px solid #ff0000; border-radius: 50%; background: transparent; color: #ff0000; font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; z-index: 60; }
+  #info-btn:hover { background: rgba(0,255,136,0.15); border-color: var(--green); color: var(--green); box-shadow: 0 0 12px rgba(0,255,136,0.3); }
+  #privacy-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(4px); }
   #privacy-modal.hidden { display: none; }
-
-  #privacy-box {
-    width: min(680px, 92vw); max-height: 85vh;
-    border: 1px solid rgba(0,255,136,0.25);
-    background: #050505; overflow-y: auto; position: relative;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,255,136,0.3) transparent;
-  }
-
+  #privacy-box { width: min(680px, 92vw); max-height: 85vh; border: 1px solid rgba(0,255,136,0.25); background: #050505; overflow-y: auto; position: relative; scrollbar-width: thin; scrollbar-color: rgba(0,255,136,0.3) transparent; }
   #privacy-box::-webkit-scrollbar { width: 4px; }
   #privacy-box::-webkit-scrollbar-track { background: transparent; }
   #privacy-box::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.3); }
-
-  #privacy-header {
-    padding: 28px 32px 20px;
-    border-bottom: 1px solid rgba(0,255,136,0.1);
-    position: sticky; top: 0; background: #050505;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-
-  #privacy-header h2 {
-    font-family: 'Orbitron', monospace;
-    font-size: 13px; letter-spacing: 5px;
-    color: var(--green); text-transform: uppercase;
-  }
-
-  #privacy-close {
-    background: transparent;
-    border: 1px solid rgba(0,255,136,0.3);
-    color: var(--green);
-    font-family: 'Orbitron', monospace;
-    font-size: 11px; letter-spacing: 2px;
-    padding: 6px 14px; cursor: pointer; transition: all 0.2s;
-  }
-
+  #privacy-header { padding: 28px 32px 20px; border-bottom: 1px solid rgba(0,255,136,0.1); position: sticky; top: 0; background: #050505; display: flex; justify-content: space-between; align-items: center; }
+  #privacy-header h2 { font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 5px; color: var(--green); text-transform: uppercase; }
+  #privacy-close { background: transparent; border: 1px solid rgba(0,255,136,0.3); color: var(--green); font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 2px; padding: 6px 14px; cursor: pointer; transition: all 0.2s; }
   #privacy-close:hover { background: rgba(0,255,136,0.1); }
-
   #privacy-body { padding: 28px 32px 32px; }
-
   #lang-toggle { display: flex; gap: 8px; margin-bottom: 28px; }
-
-  .lang-btn {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; letter-spacing: 3px;
-    padding: 6px 16px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: transparent; color: rgba(255,255,255,0.4);
-    cursor: pointer; text-transform: uppercase; transition: all 0.2s;
-  }
-
-  .lang-btn.active {
-    border-color: var(--green); color: var(--green);
-    background: rgba(0,255,136,0.06);
-  }
-
+  .lang-btn { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px; padding: 6px 16px; border: 1px solid rgba(255,255,255,0.15); background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+  .lang-btn.active { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.06); }
   .privacy-content { display: none; }
   .privacy-content.active { display: block; }
-
-  .privacy-content h3 {
-    font-family: 'Orbitron', monospace;
-    font-size: 10px; letter-spacing: 4px;
-    color: var(--amber); text-transform: uppercase;
-    margin: 24px 0 10px;
-  }
-
+  .privacy-content h3 { font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 4px; color: var(--amber); text-transform: uppercase; margin: 24px 0 10px; }
   .privacy-content h3:first-child { margin-top: 0; }
-
-  .privacy-content p {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; line-height: 1.9;
-    color: rgba(255,255,255,0.65); letter-spacing: 0.5px;
-  }
-
+  .privacy-content p { font-family: 'Share Tech Mono', monospace; font-size: 12px; line-height: 1.9; color: rgba(255,255,255,0.65); letter-spacing: 0.5px; }
   .privacy-content ul { list-style: none; margin: 8px 0; }
-
-  .privacy-content ul li {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px; line-height: 1.9;
-    color: rgba(255,255,255,0.65);
-    padding-left: 16px; position: relative;
-  }
-
-  .privacy-content ul li::before {
-    content: '●'; position: absolute; left: 0;
-    color: var(--green); font-size: 8px; top: 5px;
-  }
-
+  .privacy-content ul li { font-family: 'Share Tech Mono', monospace; font-size: 12px; line-height: 1.9; color: rgba(255,255,255,0.65); padding-left: 16px; position: relative; }
+  .privacy-content ul li::before { content: '●'; position: absolute; left: 0; color: var(--green); font-size: 8px; top: 5px; }
   .privacy-content .highlight { color: var(--green); }
   .privacy-content .warning   { color: var(--amber); }
-
-  #privacy-footer {
-    margin-top: 28px; padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; color: rgba(255,255,255,0.25);
-    letter-spacing: 1px; text-align: center;
-  }
+  #privacy-footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.25); letter-spacing: 1px; text-align: center; }
 </style>
 </head>
-
 <body>
 
 <video id="webcam" autoplay muted playsinline></video>
 <canvas id="processingCanvas"></canvas>
 <canvas id="gameCanvas"></canvas>
-
 <div id="left-tint"></div>
 <div id="right-tint"></div>
-<div id="divider"></div>
 
 <!-- HUD -->
 <div id="hud">
   <div id="hud-top">
-    <div class="hud-block">
+    <div class="hud-block" id="hud-green-block">
       <div class="hud-label" style="color:var(--green)">● Green Player</div>
       <div class="hud-value green" id="score-green-kills">00</div>
       <div class="player-tag" style="color:var(--green)">red circles hit</div>
@@ -438,7 +131,7 @@
       <div class="hud-label">Time Remaining</div>
       <div class="hud-value amber" id="timer-display">60</div>
     </div>
-    <div class="hud-block" style="align-items:flex-end">
+    <div class="hud-block" id="hud-red-block" style="align-items:flex-end">
       <div class="hud-label" style="color:var(--red); text-align:right">Red Player ●</div>
       <div class="hud-value red" id="score-red-kills">00</div>
       <div class="player-tag" style="color:var(--red)">green circles hit</div>
@@ -469,30 +162,24 @@
   <div class="screen-title" style="color:var(--green); margin-top:-20px">Point</div>
   <div class="screen-title" style="color:#0000ff; margin-top:-20px">SHOOTER</div>
   <div class="screen-sub">Left Hand vs Right Hand</div>
-
-  <!-- Cards and buttons share same 540px column — edges now perfectly aligned -->
   <div id="start-content">
     <div class="instructions">
       <div class="player-card p-green">
         <div class="pc-title">Green <span style="color:#ffffff">Player</span></div>
-        <p>Left hand</p>
-        <p>on camera</p>
+        <p>Left hand</p><p>on camera</p>
         <p>Shoot <span style="color:var(--red)">RED</span> circles</p>
       </div>
       <div class="player-card p-red">
         <div class="pc-title">Red <span style="color:#ffffff">Player</span></div>
-        <p>Right hand</p>
-        <p>on camera</p>
+        <p>Right hand</p><p>on camera</p>
         <p>Shoot <span style="color:var(--green)">GREEN</span> circles</p>
       </div>
     </div>
-
     <div id="start-btns">
       <button class="btn" id="btn-1p">Single Player</button>
       <button class="btn" id="btn-2p">2 Players</button>
     </div>
   </div>
-
   <button id="info-btn" title="Privacy Info">!<span style="color:#00ff88"> ? </span>!</button>
 </div>
 
@@ -501,12 +188,12 @@
   <div class="screen-title" style="color:var(--amber)">GAME</div>
   <div class="screen-title" style="margin-top:-20px">OVER</div>
   <div id="results-grid">
-    <div class="result-block p-green">
+    <div class="result-block p-green" id="result-green-block">
       <div class="result-num" style="color:var(--green)" id="final-green-kills">0</div>
       <div class="result-label" style="color:var(--green)">Green Player</div>
       <div class="result-sub">red circles shot</div>
     </div>
-    <div class="result-block p-red">
+    <div class="result-block p-red" id="result-red-block">
       <div class="result-num" style="color:var(--red)" id="final-red-kills">0</div>
       <div class="result-label" style="color:var(--red)">Red Player</div>
       <div class="result-sub">green circles shot</div>
@@ -528,7 +215,6 @@
         <button class="lang-btn active" data-lang="en">English</button>
         <button class="lang-btn" data-lang="sr">Српски</button>
       </div>
-
       <div class="privacy-content active" id="content-en">
         <h3>📷 Why does game need camera?</h3>
         <p>"MilFPS - Mil Finger Point Shooter" uses camera to track the position of finger in real time. That's how the game knows where it is pointing at. No mouse, no touch, just finger.</p>
@@ -553,7 +239,6 @@
         <p class="warning">When you click "Single Player" or "2 Players", your browser will ask for camera permission. You must allow it to be able to play. You can revoke this permission at any time from your browser settings.</p>
         <div id="privacy-footer"><a href="https://milstamenkovic.github.io">© 2026 Mil Stamenković</a></div>
       </div>
-
       <div class="privacy-content" id="content-sr">
         <h3>📷 Зашто је игри потребна камера?</h3>
         <p>"MilFPS - Mil Finger Point Shooter" користи камеру да би пратила положај прста у реалном времену. Тако игра зна где се показује. Без миша, без додиривања екрана. Само прст.</p>
@@ -585,31 +270,29 @@
 <script>
 // ─── AUDIO ENGINE ─────────────────────────────────────────────────────────────
 let audioCtx = null;
-
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
 
-// ── Pew-pew: laser zap on every hit ─────────────────────────────────────────
 function playPew() {
   try {
     const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(900, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.12);
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.13);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.13);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.13);
   } catch(e) {}
 }
 
-// ── Ambient hum: low sci-fi drone, starts on first interaction ───────────────
+// ── "Empty room" ambient hum ──────────────────────────────────────────────────
+// Shaped white noise: high-pass removes rumble, peaking boost adds air presence,
+// low-pass softens harshness. Plus a barely-audible 60Hz tone for electronics feel.
 let humNodes = null;
 
 function startHum() {
@@ -617,46 +300,61 @@ function startHum() {
   try {
     const ctx = getAudioCtx();
 
-    const osc1 = ctx.createOscillator();
-    osc1.type = 'sine';
-    osc1.frequency.value = 55;
+    // 4-second looping white noise buffer
+    const bufLen = ctx.sampleRate * 4;
+    const noiseBuffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const nd = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
 
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.value = 110;
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
 
-    const osc3 = ctx.createOscillator();
-    osc3.type = 'triangle';
-    osc3.frequency.value = 111.5;
+    // Remove low rumble (below 1.2kHz)
+    const hiPass = ctx.createBiquadFilter();
+    hiPass.type = 'highpass';
+    hiPass.frequency.value = 1200;
+    hiPass.Q.value = 0.5;
 
-    const gain1 = ctx.createGain(); gain1.gain.value = 0.10;
-    const gain2 = ctx.createGain(); gain2.gain.value = 0.05;
-    const gain3 = ctx.createGain(); gain3.gain.value = 0.04;
+    // Gentle air presence around 3.5kHz
+    const airPeak = ctx.createBiquadFilter();
+    airPeak.type = 'peaking';
+    airPeak.frequency.value = 3500;
+    airPeak.Q.value = 0.8;
+    airPeak.gain.value = 5;
 
-    // Breathing LFO
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.18;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.03;
-    lfo.connect(lfoGain);
-    lfoGain.connect(gain1.gain);
+    // Soft cut above 9kHz — no harsh hiss
+    const loPass = ctx.createBiquadFilter();
+    loPass.type = 'lowpass';
+    loPass.frequency.value = 9000;
+    loPass.Q.value = 0.5;
+
+    // Faint 60Hz electronics tone — barely perceptible
+    const toneOsc = ctx.createOscillator();
+    toneOsc.type = 'sine';
+    toneOsc.frequency.value = 60;
+    const toneGain = ctx.createGain();
+    toneGain.gain.value = 0.005;
 
     const master = ctx.createGain();
     master.gain.value = 0;
 
-    osc1.connect(gain1); gain1.connect(master);
-    osc2.connect(gain2); gain2.connect(master);
-    osc3.connect(gain3); gain3.connect(master);
+    noiseSource.connect(hiPass);
+    hiPass.connect(airPeak);
+    airPeak.connect(loPass);
+    loPass.connect(master);
+    toneOsc.connect(toneGain);
+    toneGain.connect(master);
     master.connect(ctx.destination);
 
-    osc1.start(); osc2.start(); osc3.start(); lfo.start();
+    noiseSource.start();
+    toneOsc.start();
 
-    // Fade in over 2.5s
+    // Very slow, quiet fade-in — should feel like the room was always this way
     master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(1, ctx.currentTime + 2.5);
+    master.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 5.0);
 
-    humNodes = { osc1, osc2, osc3, lfo, master };
+    humNodes = { noiseSource, toneOsc, master };
   } catch(e) {}
 }
 
@@ -664,52 +362,41 @@ function stopHum() {
   if (!humNodes) return;
   try {
     const ctx = getAudioCtx();
-    humNodes.master.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+    humNodes.master.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
     setTimeout(() => {
-      try {
-        humNodes.osc1.stop(); humNodes.osc2.stop();
-        humNodes.osc3.stop(); humNodes.lfo.stop();
-      } catch(e) {}
+      try { humNodes.noiseSource.stop(); humNodes.toneOsc.stop(); } catch(e) {}
       humNodes = null;
-    }, 1600);
+    }, 2100);
   } catch(e) {}
 }
 
-// ── Upbeat beat sequencer: kick + hihat + bass pulse ─────────────────────────
-let beatInterval = null;
-let beatStep = 0;
-
-const beatPattern = [1, 0, 0, 1,  0, 1, 0, 0];
-const bassPattern = [1, 0, 1, 0,  0, 0, 1, 0];
-const hatPattern  = [0, 1, 0, 1,  1, 0, 1, 1];
+// ── Beat sequencer ─────────────────────────────────────────────────────────────
+let beatInterval = null, beatStep = 0;
+const beatPattern = [1,0,0,1, 0,1,0,0];
+const bassPattern = [1,0,1,0, 0,0,1,0];
+const hatPattern  = [0,1,0,1, 1,0,1,1];
 
 function playKick() {
   try {
     const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
     osc.type = 'sine';
     osc.frequency.setValueAtTime(150, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.12);
     gain.gain.setValueAtTime(0.28, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.18);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.18);
   } catch(e) {}
 }
-
 function playHat() {
   try {
     const ctx = getAudioCtx();
     const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.04), ctx.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.value = 7000;
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const filter = ctx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 7000;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.06, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
@@ -717,26 +404,21 @@ function playHat() {
     src.start(); src.stop(ctx.currentTime + 0.05);
   } catch(e) {}
 }
-
 function playBassPulse() {
   try {
     const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = 'square';
-    osc.frequency.value = 110;
+    osc.type = 'square'; osc.frequency.value = 110;
     gain.gain.setValueAtTime(0.07, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.09);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.09);
   } catch(e) {}
 }
-
 function startBeat() {
   if (beatInterval) return;
   beatStep = 0;
-  const stepMs = (60 / 128 / 2) * 1000; // 128 BPM, 16th notes
+  const stepMs = (60 / 128 / 2) * 1000;
   beatInterval = setInterval(() => {
     const s = beatStep % 8;
     if (beatPattern[s]) playKick();
@@ -745,23 +427,15 @@ function startBeat() {
     beatStep++;
   }, stepMs);
 }
-
 function stopBeat() {
   if (beatInterval) { clearInterval(beatInterval); beatInterval = null; }
 }
 
 // ─── PRIVACY MODAL ────────────────────────────────────────────────────────────
 const privacyModal = document.getElementById('privacy-modal');
-
-document.getElementById('info-btn').addEventListener('click', () => {
-  privacyModal.classList.remove('hidden');
-});
-document.getElementById('privacy-close').addEventListener('click', () => {
-  privacyModal.classList.add('hidden');
-});
-privacyModal.addEventListener('click', (e) => {
-  if (e.target === privacyModal) privacyModal.classList.add('hidden');
-});
+document.getElementById('info-btn').addEventListener('click', () => privacyModal.classList.remove('hidden'));
+document.getElementById('privacy-close').addEventListener('click', () => privacyModal.classList.add('hidden'));
+privacyModal.addEventListener('click', (e) => { if (e.target === privacyModal) privacyModal.classList.add('hidden'); });
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const lang = btn.dataset.lang;
@@ -772,7 +446,6 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
   });
 });
 
-// Hum starts on first user interaction (browser audio policy requires this)
 let humStarted = false;
 document.addEventListener('click', () => {
   if (!humStarted) { humStarted = true; startHum(); }
@@ -780,26 +453,23 @@ document.addEventListener('click', () => {
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let gameMode = 1;
+// Single player hand lock: null = waiting for first detection
+// 'green' = left hand locked in, 'red' = right hand locked in
+let lockedHand = null;
 
 const state = {
-  running: false,
-  timeLeft: 60,
-  greenKills: 0,
-  redKills: 0,
+  running: false, timeLeft: 60,
+  greenKills: 0, redKills: 0,
   circles: [],
   leftX: -1, leftY: -1,
   rightX: -1, rightY: -1,
-  lastSpawn: 0,
-  spawnInterval: 1800,
-  timerInterval: null,
-  gameLoop: null,
-  stream: null,
+  lastSpawn: 0, spawnInterval: 1800,
+  timerInterval: null, gameLoop: null, stream: null,
 };
 
 // ─── CANVAS ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
@@ -809,24 +479,18 @@ function spawnCircle() {
   const elapsed = 60 - state.timeLeft;
   const maxCircles = Math.min(7 + Math.floor(elapsed / 6), 22);
   if (state.circles.length >= maxCircles) return;
-
   const r = 22 + Math.random() * 16;
   const margin = 80;
   const x = margin + Math.random() * (canvas.width - margin * 2);
   const y = margin + Math.random() * (canvas.height - margin * 2);
   const speed = 1.2 + Math.random() * 2.0;
   const angle = Math.random() * Math.PI * 2;
-
-  state.circles.push({
-    x, y, r,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
+  state.circles.push({ x, y, r,
+    vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
     type: Math.random() < 0.5 ? 'red' : 'green',
-    opacity: 0,
-    wobble: Math.random() * Math.PI * 2,
-    wobbleSpeed: 0.025 + Math.random() * 0.035,
-    pulsePhase: Math.random() * Math.PI * 2,
-  });
+    opacity: 0, wobble: Math.random()*Math.PI*2,
+    wobbleSpeed: 0.025+Math.random()*0.035,
+    pulsePhase: Math.random()*Math.PI*2 });
 }
 
 function updateCircles(ts) {
@@ -836,18 +500,15 @@ function updateCircles(ts) {
     state.lastSpawn = ts;
     state.spawnInterval = Math.max(500, 1800 - (60 - state.timeLeft) * 26);
   }
-
   for (const c of state.circles) {
     c.opacity = Math.min(1, c.opacity + 0.07);
-    c.wobble += c.wobbleSpeed;
-    c.pulsePhase += 0.05;
+    c.wobble += c.wobbleSpeed; c.pulsePhase += 0.05;
     c.x += c.vx + Math.sin(c.wobble) * 0.4;
     c.y += c.vy + Math.cos(c.wobble * 0.7) * 0.3;
-
-    if (c.x - c.r < 0)             { c.x = c.r;               c.vx =  Math.abs(c.vx); }
-    if (c.x + c.r > canvas.width)  { c.x = canvas.width-c.r;  c.vx = -Math.abs(c.vx); }
-    if (c.y - c.r < 0)             { c.y = c.r;               c.vy =  Math.abs(c.vy); }
-    if (c.y + c.r > canvas.height) { c.y = canvas.height-c.r; c.vy = -Math.abs(c.vy); }
+    if (c.x - c.r < 0)             { c.x = c.r;              c.vx =  Math.abs(c.vx); }
+    if (c.x + c.r > canvas.width)  { c.x = canvas.width-c.r; c.vx = -Math.abs(c.vx); }
+    if (c.y - c.r < 0)             { c.y = c.r;              c.vy =  Math.abs(c.vy); }
+    if (c.y + c.r > canvas.height) { c.y = canvas.height-c.r;c.vy = -Math.abs(c.vy); }
   }
 }
 
@@ -857,31 +518,19 @@ function drawCircles() {
     const r = c.r * pulse;
     const color    = c.type === 'red' ? '#ff2020' : '#00ff88';
     const glowRGBA = c.type === 'red' ? 'rgba(255,32,32,' : 'rgba(0,255,136,';
-
-    ctx.save();
-    ctx.globalAlpha = c.opacity;
-
+    ctx.save(); ctx.globalAlpha = c.opacity;
     const grad = ctx.createRadialGradient(c.x, c.y, r*0.3, c.x, c.y, r*2.2);
-    grad.addColorStop(0, glowRGBA+'0.18)');
-    grad.addColorStop(1, glowRGBA+'0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(c.x, c.y, r*2.2, 0, Math.PI*2); ctx.fill();
-
+    grad.addColorStop(0, glowRGBA+'0.18)'); grad.addColorStop(1, glowRGBA+'0)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(c.x, c.y, r*2.2, 0, Math.PI*2); ctx.fill();
     const body = ctx.createRadialGradient(c.x-r*0.3, c.y-r*0.3, 0, c.x, c.y, r);
     body.addColorStop(0, c.type==='red' ? '#ff8080' : '#80ffcc');
     body.addColorStop(0.5, color);
     body.addColorStop(1, c.type==='red' ? '#660000' : '#004433');
-    ctx.fillStyle = body;
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill();
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = color; ctx.shadowBlur = 12;
-    ctx.stroke();
-
+    ctx.fillStyle = body; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.shadowColor = color; ctx.shadowBlur = 12; ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.beginPath(); ctx.arc(c.x-r*0.28, c.y-r*0.28, r*0.35, 0, Math.PI*2); ctx.fill();
-
     ctx.restore();
   }
 }
@@ -892,14 +541,26 @@ function checkHits() {
     const c = state.circles[i];
     if (c.opacity < 0.5) continue;
 
-    if (state.leftX >= 0) {
-      const dx = state.leftX - c.x, dy = state.leftY - c.y;
-      if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'green'); continue; }
-    }
-
-    if (state.rightX >= 0) {
-      const dx = state.rightX - c.x, dy = state.rightY - c.y;
-      if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'red'); continue; }
+    if (gameMode === 1) {
+      // Single player: only locked hand active — other hand ignored
+      if (lockedHand === 'green' && state.leftX >= 0) {
+        const dx = state.leftX - c.x, dy = state.leftY - c.y;
+        if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'green'); continue; }
+      } else if (lockedHand === 'red' && state.rightX >= 0) {
+        const dx = state.rightX - c.x, dy = state.rightY - c.y;
+        if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'red'); continue; }
+      }
+      // lockedHand === null: waiting for first hand, no hits yet
+    } else {
+      // 2 player: both hands active
+      if (state.leftX >= 0) {
+        const dx = state.leftX - c.x, dy = state.leftY - c.y;
+        if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'green'); continue; }
+      }
+      if (state.rightX >= 0) {
+        const dx = state.rightX - c.x, dy = state.rightY - c.y;
+        if (Math.sqrt(dx*dx+dy*dy) < c.r) { hit(i, c, 'red'); continue; }
+      }
     }
   }
 }
@@ -919,55 +580,40 @@ function hit(idx, c, shooter) {
 
 // ─── PARTICLES ────────────────────────────────────────────────────────────────
 const particles = [];
-
 function showExplosion(x, y, type) {
   const color = type === 'red' ? '#ff2020' : '#00ff88';
   for (let i = 0; i < 16; i++) {
-    const angle = (i/16)*Math.PI*2;
-    const speed = 2 + Math.random()*5;
+    const angle = (i/16)*Math.PI*2, speed = 2 + Math.random()*5;
     particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
       life:1, decay: 0.04+Math.random()*0.04, r: 2+Math.random()*5, color });
   }
 }
-
 function updateParticles() {
   for (let i = particles.length-1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx; p.y += p.vy;
-    p.vx *= 0.93; p.vy *= 0.93;
-    p.life -= p.decay;
-    if (p.life <= 0) particles.splice(i,1);
+    p.x += p.vx; p.y += p.vy; p.vx *= 0.93; p.vy *= 0.93;
+    p.life -= p.decay; if (p.life <= 0) particles.splice(i,1);
   }
 }
-
 function drawParticles() {
   for (const p of particles) {
-    ctx.save();
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
+    ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
     ctx.shadowColor = p.color; ctx.shadowBlur = 8;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2); ctx.fill();
     ctx.restore();
   }
 }
-
 function flashScreen(type) {
-  const el = document.createElement('div');
-  el.className = 'hit-flash';
+  const el = document.createElement('div'); el.className = 'hit-flash';
   el.style.background = type === 'red' ? 'rgba(255,0,0,1)' : 'rgba(0,255,100,1)';
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 200);
+  document.body.appendChild(el); setTimeout(()=>el.remove(), 200);
 }
-
 function showScorePopup(x, y, shooter, isKill) {
-  const el = document.createElement('div');
-  el.className = 'score-popup';
-  el.style.left = x+'px';
-  el.style.top  = y+'px';
+  const el = document.createElement('div'); el.className = 'score-popup';
+  el.style.left = x+'px'; el.style.top = y+'px';
   el.style.color = shooter === 'green' ? '#00ff88' : '#ff2020';
-  el.textContent = isKill ? `+1 ${shooter.toUpperCase()}` : `−1 FRIENDLY FIRE`;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 700);
+  el.textContent = isKill ? `+1 ${shooter.toUpperCase()}` : String.fromCharCode(8722)+'1 FRIENDLY FIRE';
+  document.body.appendChild(el); setTimeout(()=>el.remove(), 700);
 }
 
 // ─── CROSSHAIRS ───────────────────────────────────────────────────────────────
@@ -976,15 +622,10 @@ function drawCrosshair(fx, fy, color) {
   const t = Date.now() * 0.003;
   const pulse = 1 + Math.sin(t*2)*0.15;
   const r = 20 * pulse;
-
   ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.shadowColor = color; ctx.shadowBlur = 14;
-  ctx.globalAlpha = 0.85;
-
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.shadowColor = color; ctx.shadowBlur = 14; ctx.globalAlpha = 0.85;
   ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI*2); ctx.stroke();
-
   const gap=6, len=14;
   ctx.beginPath();
   ctx.moveTo(fx, fy-r-gap-len); ctx.lineTo(fx, fy-r-gap);
@@ -992,7 +633,6 @@ function drawCrosshair(fx, fy, color) {
   ctx.moveTo(fx-r-gap-len, fy); ctx.lineTo(fx-r-gap, fy);
   ctx.moveTo(fx+r+gap, fy);     ctx.lineTo(fx+r+gap+len, fy);
   ctx.stroke();
-
   ctx.fillStyle = color; ctx.shadowBlur = 20;
   ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI*2); ctx.fill();
   ctx.restore();
@@ -1001,49 +641,45 @@ function drawCrosshair(fx, fy, color) {
 // ─── GRID ─────────────────────────────────────────────────────────────────────
 function drawGrid() {
   const spacing = 60;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth = 1;
-  for (let x=0; x<canvas.width; x+=spacing) {
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
-  }
-  for (let y=0; y<canvas.height; y+=spacing) {
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
-  }
+  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.025)'; ctx.lineWidth = 1;
+  for (let x=0; x<canvas.width; x+=spacing) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y=0; y<canvas.height; y+=spacing) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
   ctx.restore();
 }
 
 // ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 function loop(ts) {
   if (!state.running) return;
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid();
-  updateCircles(ts);
-  drawCircles();
-  updateParticles();
-  drawParticles();
-
+  updateCircles(ts); drawCircles();
+  updateParticles(); drawParticles();
   processWebcam();
-  drawCrosshair(state.leftX,  state.leftY,  '#00ff88');
-  drawCrosshair(state.rightX, state.rightY, '#ff2020');
-  checkHits();
 
-  document.getElementById('circles-status').textContent = `TARGETS: ${state.circles.length}`;
+  // Crosshairs: in single player only show locked hand
+  if (gameMode === 2) {
+    drawCrosshair(state.leftX,  state.leftY,  '#00ff88');
+    drawCrosshair(state.rightX, state.rightY, '#ff2020');
+  } else if (lockedHand === 'green') {
+    drawCrosshair(state.leftX, state.leftY, '#00ff88');
+  } else if (lockedHand === 'red') {
+    drawCrosshair(state.rightX, state.rightY, '#ff2020');
+  } else {
+    // Pre-lock: show any hand detected as a guide so player knows tracking works
+    drawCrosshair(state.leftX,  state.leftY,  '#00ff88');
+    drawCrosshair(state.rightX, state.rightY, '#ff2020');
+  }
+
+  checkHits();
+  document.getElementById('circles-status').textContent = 'TARGETS: ' + state.circles.length;
   state.gameLoop = requestAnimationFrame(loop);
 }
 
 // ─── MEDIAPIPE ────────────────────────────────────────────────────────────────
 const video = document.getElementById('webcam');
-const procCanvas = document.getElementById('processingCanvas');
 const camPreviewVideo = document.getElementById('cam-preview-video');
-
-let mpHands = null;
-let mediaPipeReady = false;
-
+let mpHands = null, mediaPipeReady = false;
 let smoothLX=-1, smoothLY=-1, smoothRX=-1, smoothRY=-1;
 const SMOOTH = 0.4;
 
@@ -1060,65 +696,84 @@ function onMediaPipeResults(results) {
 
   const trackG = document.getElementById('tracking-green');
   const trackR = document.getElementById('tracking-red');
-
-  state.leftX=-1; state.leftY=-1;
-  state.rightX=-1; state.rightY=-1;
+  state.leftX=-1; state.leftY=-1; state.rightX=-1; state.rightY=-1;
   trackG.textContent = '● GREEN: NO HAND';
   trackR.textContent = '● RED: NO HAND';
-
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
 
   for (let h = 0; h < results.multiHandLandmarks.length; h++) {
     const landmarks  = results.multiHandLandmarks[h];
     const handedness = results.multiHandedness[h].label;
-
-    const tip = landmarks[8];
-    const pip = landmarks[6];
-
-    const tipX = 1 - tip.x;
-    const tipY = tip.y;
-    const dirX = tipX - (1 - pip.x);
-    const dirY = tipY - pip.y;
-    const len  = Math.sqrt(dirX*dirX + dirY*dirY) || 1;
-    const projX = tipX + (dirX/len)*0.03;
-    const projY = tipY + (dirY/len)*0.03;
-
-    const rawX = projX * canvas.width;
-    const rawY = projY * canvas.height;
+    const tip = landmarks[8], pip = landmarks[6];
+    const tipX = 1 - tip.x, tipY = tip.y;
+    const dirX = tipX - (1 - pip.x), dirY = tipY - pip.y;
+    const len = Math.sqrt(dirX*dirX + dirY*dirY) || 1;
+    const projX = tipX + (dirX/len)*0.03, projY = tipY + (dirY/len)*0.03;
+    const rawX = projX * canvas.width, rawY = projY * canvas.height;
 
     if (handedness === 'Right') {
+      // Person's LEFT hand → green player
       if (smoothLX < 0) { smoothLX=rawX; smoothLY=rawY; }
       smoothLX += (rawX - smoothLX) * SMOOTH;
       smoothLY += (rawY - smoothLY) * SMOOTH;
       state.leftX = smoothLX; state.leftY = smoothLY;
       trackG.textContent = '● GREEN: LOCKED';
-      drawHandSkeleton(landmarks, pw, ph, '#00ff88');
+      // Single player: first hand detected locks the game
+      if (gameMode === 1 && state.running && lockedHand === null) {
+        lockedHand = 'green';
+        applyHudForLockedHand();
+      }
+      // Draw skeleton only if relevant
+      if (gameMode === 2 || lockedHand === null || lockedHand === 'green') {
+        drawHandSkeleton(landmarks, pw, ph, '#00ff88');
+      }
     } else {
+      // Person's RIGHT hand → red player
       if (smoothRX < 0) { smoothRX=rawX; smoothRY=rawY; }
       smoothRX += (rawX - smoothRX) * SMOOTH;
       smoothRY += (rawY - smoothRY) * SMOOTH;
       state.rightX = smoothRX; state.rightY = smoothRY;
       trackR.textContent = '● RED: LOCKED';
-      drawHandSkeleton(landmarks, pw, ph, '#ff2020');
+      if (gameMode === 1 && state.running && lockedHand === null) {
+        lockedHand = 'red';
+        applyHudForLockedHand();
+      }
+      if (gameMode === 2 || lockedHand === null || lockedHand === 'red') {
+        drawHandSkeleton(landmarks, pw, ph, '#ff2020');
+      }
     }
   }
 }
 
-function drawHandSkeleton(landmarks, pw, ph, color) {
-  const connections = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [0,9],[9,10],[10,11],[11,12],
-    [0,13],[13,14],[14,15],[15,16],
-    [0,17],[17,18],[18,19],[19,20],
-    [5,9],[9,13],[13,17]
-  ];
+// Apply HUD visibility for single player based on which hand locked in
+function applyHudForLockedHand() {
+  if (gameMode === 2) {
+    document.getElementById('hud-green-block').style.visibility = 'visible';
+    document.getElementById('hud-red-block').style.visibility   = 'visible';
+    document.getElementById('tracking-red').style.display = 'block';
+    document.getElementById('cam-label').textContent = 'CAM — BOTH HANDS';
+    return;
+  }
+  if (lockedHand === 'green') {
+    document.getElementById('hud-green-block').style.visibility = 'visible';
+    document.getElementById('hud-red-block').style.visibility   = 'hidden';
+    document.getElementById('tracking-red').style.display = 'none';
+    document.getElementById('cam-label').textContent = 'CAM — LEFT HAND';
+  } else if (lockedHand === 'red') {
+    document.getElementById('hud-green-block').style.visibility = 'hidden';
+    document.getElementById('hud-red-block').style.visibility   = 'visible';
+    document.getElementById('tracking-green').style.display = 'none';
+    document.getElementById('cam-label').textContent = 'CAM — RIGHT HAND';
+  }
+}
 
+function drawHandSkeleton(landmarks, pw, ph, color) {
+  const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
   previewCtx.save();
   const alphaColor = color === '#00ff88' ? 'rgba(0,255,136,0.55)' : 'rgba(255,32,32,0.55)';
-  previewCtx.strokeStyle = alphaColor;
-  previewCtx.lineWidth = 1.5;
-
+  previewCtx.strokeStyle = alphaColor; previewCtx.lineWidth = 1.5;
   for (const [a,b] of connections) {
     const lA=landmarks[a], lB=landmarks[b];
     previewCtx.beginPath();
@@ -1126,12 +781,9 @@ function drawHandSkeleton(landmarks, pw, ph, color) {
     previewCtx.lineTo((1-lB.x)*pw, lB.y*ph);
     previewCtx.stroke();
   }
-
   for (let i=0; i<landmarks.length; i++) {
-    const lm=landmarks[i];
-    const x=(1-lm.x)*pw, y=lm.y*ph;
-    previewCtx.beginPath();
-    previewCtx.arc(x, y, i===8?5:2, 0, Math.PI*2);
+    const lm=landmarks[i], x=(1-lm.x)*pw, y=lm.y*ph;
+    previewCtx.beginPath(); previewCtx.arc(x, y, i===8?5:2, 0, Math.PI*2);
     previewCtx.fillStyle = i===8 ? color : alphaColor;
     previewCtx.shadowColor = color; previewCtx.shadowBlur = i===8?10:3;
     previewCtx.fill();
@@ -1141,33 +793,19 @@ function drawHandSkeleton(landmarks, pw, ph, color) {
 
 async function initMediaPipe() {
   document.getElementById('tracking-green').textContent = '● GREEN: LOADING...';
-
   return new Promise((resolve, reject) => {
     const s1 = document.createElement('script');
     s1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js';
     s1.crossOrigin = 'anonymous';
-
     const s2 = document.createElement('script');
     s2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js';
     s2.crossOrigin = 'anonymous';
-
     s1.onload = () => document.head.appendChild(s2);
-
     s2.onload = () => {
       try {
-        mpHands = new Hands({
-          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`
-        });
-
-        mpHands.setOptions({
-          maxNumHands: gameMode,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.6,
-        });
-
+        mpHands = new Hands({ locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/' + f });
+        mpHands.setOptions({ maxNumHands: gameMode === 2 ? 2 : 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
         mpHands.onResults(onMediaPipeResults);
-
         mpHands.initialize().then(() => {
           mediaPipeReady = true;
           document.getElementById('tracking-green').textContent = '● GREEN: READY';
@@ -1176,13 +814,11 @@ async function initMediaPipe() {
         }).catch(reject);
       } catch(e) { reject(e); }
     };
-
     s1.onerror = s2.onerror = reject;
     document.head.appendChild(s1);
   });
 }
 
-// Every frame — no skip — snappier response
 function processWebcam() {
   if (!mediaPipeReady || !video.readyState || video.readyState < 2) return;
   mpHands.send({ image: video }).catch(()=>{});
@@ -1190,15 +826,12 @@ function processWebcam() {
 
 // ─── TIMER ────────────────────────────────────────────────────────────────────
 function startTimer() {
-  state.timeLeft = 60;
-  updateTimerDisplay();
+  state.timeLeft = 60; updateTimerDisplay();
   state.timerInterval = setInterval(() => {
-    state.timeLeft--;
-    updateTimerDisplay();
+    state.timeLeft--; updateTimerDisplay();
     if (state.timeLeft <= 0) endGame();
   }, 1000);
 }
-
 function updateTimerDisplay() {
   document.getElementById('timer-display').textContent = String(state.timeLeft).padStart(2,'0');
   const bar = document.getElementById('timer-bar');
@@ -1210,7 +843,6 @@ function updateTimerDisplay() {
     bar.style.background = '#ffaa00'; bar.style.boxShadow = '0 0 10px #ffaa00';
   }
 }
-
 function updateScoreDisplay() {
   document.getElementById('score-green-kills').textContent = String(state.greenKills).padStart(2,'0');
   document.getElementById('score-red-kills').textContent   = String(state.redKills).padStart(2,'0');
@@ -1219,18 +851,11 @@ function updateScoreDisplay() {
 // ─── GAME CONTROL ─────────────────────────────────────────────────────────────
 async function startGame() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:'user', width:640, height:480 }
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:640, height:480 } });
     state.stream = stream;
-    video.srcObject = stream;
-    camPreviewVideo.srcObject = stream;
-    await video.play();
-    await camPreviewVideo.play();
-  } catch(e) {
-    alert('Camera access required!');
-    return;
-  }
+    video.srcObject = stream; camPreviewVideo.srcObject = stream;
+    await video.play(); await camPreviewVideo.play();
+  } catch(e) { alert('Camera access required!'); return; }
 
   if (!mediaPipeReady) {
     document.getElementById('btn-1p').disabled = true;
@@ -1251,34 +876,37 @@ async function startGame() {
     document.getElementById('btn-1p').disabled = false;
     document.getElementById('btn-2p').disabled = false;
   } else {
-    mpHands.setOptions({ maxNumHands: gameMode });
+    mpHands.setOptions({ maxNumHands: gameMode === 2 ? 2 : 1 });
   }
 
+  // Reset all state
   state.running = true;
-  state.greenKills = 0;
-  state.redKills = 0;
+  state.greenKills = 0; state.redKills = 0;
   state.circles = [];
-  state.leftX=-1; state.leftY=-1;
-  state.rightX=-1; state.rightY=-1;
-  state.lastSpawn = 0;
-  state.spawnInterval = 1800;
+  state.leftX=-1; state.leftY=-1; state.rightX=-1; state.rightY=-1;
+  state.lastSpawn = 0; state.spawnInterval = 1800;
   smoothLX=-1; smoothLY=-1; smoothRX=-1; smoothRY=-1;
+  lockedHand = null;
+
+  // Restore status indicator visibility
+  document.getElementById('tracking-green').style.display = 'block';
+  document.getElementById('tracking-red').style.display   = 'block';
 
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('results-screen').classList.add('hidden');
   updateScoreDisplay();
 
-  document.getElementById('score-red-kills').parentElement.style.visibility =
-    gameMode === 2 ? 'visible' : 'hidden';
-  document.getElementById('tracking-red').style.display =
-    gameMode === 2 ? 'block' : 'none';
+  // Initial HUD state: show both blocks until hand lock is determined
+  document.getElementById('hud-green-block').style.visibility = 'visible';
+  document.getElementById('hud-red-block').style.visibility   = 'visible';
+  document.getElementById('tracking-red').style.display = 'block';
+  document.getElementById('cam-label').textContent = gameMode === 2 ? 'CAM — BOTH HANDS' : 'CAM — SHOW ONE HAND';
 
   const bar = document.getElementById('timer-bar');
-  bar.style.background = 'var(--green)';
-  bar.style.boxShadow = '0 0 10px var(--green)';
+  bar.style.background = 'var(--green)'; bar.style.boxShadow = '0 0 10px var(--green)';
   document.getElementById('timer-display').style.color = 'var(--amber)';
 
-  startBeat();  // upbeat starts when game starts
+  startBeat();
   for (let i=0; i<5; i++) spawnCircle();
   startTimer();
   requestAnimationFrame(loop);
@@ -1289,24 +917,40 @@ function endGame() {
   clearInterval(state.timerInterval);
   cancelAnimationFrame(state.gameLoop);
   if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
+  stopBeat();
 
-  stopBeat();  // beat stops, hum continues through results
-
-  document.getElementById('final-green-kills').textContent = state.greenKills;
-  document.getElementById('final-red-kills').textContent   = state.redKills;
-
-  const winner = document.getElementById('winner-line');
-  if (state.greenKills > state.redKills) {
-    winner.textContent = '🟢 GREEN PLAYER WINS!';
-    winner.style.color = '#00ff88';
-  } else if (state.redKills > state.greenKills) {
-    winner.textContent = '🔴 RED PLAYER WINS!';
-    winner.style.color = '#ff2020';
+  if (gameMode === 1 && lockedHand !== null) {
+    // Single player: show only the locked hand's result block
+    if (lockedHand === 'green') {
+      document.getElementById('result-green-block').style.display = 'flex';
+      document.getElementById('result-red-block').style.display   = 'none';
+      document.getElementById('final-green-kills').textContent = state.greenKills;
+      const winner = document.getElementById('winner-line');
+      winner.textContent = '🟢 SCORE: ' + state.greenKills;
+      winner.style.color = '#00ff88';
+    } else {
+      document.getElementById('result-green-block').style.display = 'none';
+      document.getElementById('result-red-block').style.display   = 'flex';
+      document.getElementById('final-red-kills').textContent = state.redKills;
+      const winner = document.getElementById('winner-line');
+      winner.textContent = '🔴 SCORE: ' + state.redKills;
+      winner.style.color = '#ff2020';
+    }
   } else {
-    winner.textContent = '⚡ DRAW — DEAD HEAT';
-    winner.style.color = '#ffaa00';
+    // 2 player (or edge case: no hand detected in 1P)
+    document.getElementById('result-green-block').style.display = 'flex';
+    document.getElementById('result-red-block').style.display   = 'flex';
+    document.getElementById('final-green-kills').textContent = state.greenKills;
+    document.getElementById('final-red-kills').textContent   = state.redKills;
+    const winner = document.getElementById('winner-line');
+    if (state.greenKills > state.redKills) {
+      winner.textContent = '🟢 GREEN PLAYER WINS!'; winner.style.color = '#00ff88';
+    } else if (state.redKills > state.greenKills) {
+      winner.textContent = '🔴 RED PLAYER WINS!'; winner.style.color = '#ff2020';
+    } else {
+      winner.textContent = '⚡ DRAW — DEAD HEAT'; winner.style.color = '#ffaa00';
+    }
   }
-
   document.getElementById('results-screen').classList.remove('hidden');
 }
 
