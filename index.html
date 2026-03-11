@@ -5,7 +5,7 @@
 <!-- © 2026 Mil Stamenković -->
 <!-- Created with help of Free Claude AI -->
 <!-- Created: 05.03.2026. - Ćuprija, Serbia -->
-<!-- Revised: 10.03.2026. - Ćuprija, Serbia -->
+<!-- Revised: 11.03.2026. - Ćuprija, Serbia -->
 <!-- Published: n/n - n/n --> 
 
 
@@ -15,11 +15,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<link rel="icon" type="image/jpeg" href="/Media/MilJapaneseAvatar-Transparent-1280x1280.png">
 <title>MilFPS</title>
-
-<link rel="icon" type="image/jpeg" href="./Media/MilJapaneseSmallIconV1.jpg">
-
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -71,6 +68,8 @@
   #start-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   #start-btns .btn { width: 100%; padding: 14px 0; text-align: center; }
   #results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 28px 0 40px; min-width: 420px; }
+  #results-grid.single-player { display: flex; justify-content: center; min-width: 0; }
+  #results-grid.single-player .result-block { min-width: 220px; }
   .result-block { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px; border: 1px solid rgba(255,255,255,0.1); }
   .result-block.p-green { border-color: rgba(0,255,136,0.25); }
   .result-block.p-red   { border-color: rgba(255,32,32,0.25); }
@@ -355,7 +354,7 @@ function startHum() {
 
     // Very slow, quiet fade-in — should feel like the room was always this way
     master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 5.0);
+    master.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 5.0);
 
     humNodes = { noiseSource, toneOsc, master };
   } catch(e) {}
@@ -418,20 +417,33 @@ function playBassPulse() {
     osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.09);
   } catch(e) {}
 }
+const BASE_BPM = 128;
+const TURBO_MULTIPLIER = 1.75; // last 10% of timer: 128 → 224 BPM
+
 function startBeat() {
   if (beatInterval) return;
   beatStep = 0;
-  const stepMs = (60 / 128 / 2) * 1000;
-  beatInterval = setInterval(() => {
-    const s = beatStep % 8;
-    if (beatPattern[s]) playKick();
-    if (hatPattern[s])  playHat();
-    if (bassPattern[s]) playBassPulse();
-    beatStep++;
-  }, stepMs);
+  scheduleBeatStep();
+}
+
+function scheduleBeatStep() {
+  if (!state.running) return;
+  // Determine BPM: last 10% of total game time = turbo mode
+  const threshold = Math.ceil(totalGameTime * 0.1); // last 10% of total time
+  const inTurbo = state.timeLeft > 0 && state.timeLeft <= threshold;
+  const bpm = inTurbo ? BASE_BPM * TURBO_MULTIPLIER : BASE_BPM;
+  const stepMs = (60 / bpm / 2) * 1000;
+
+  const s = beatStep % 8;
+  if (beatPattern[s]) playKick();
+  if (hatPattern[s])  playHat();
+  if (bassPattern[s]) playBassPulse();
+  beatStep++;
+
+  beatInterval = setTimeout(scheduleBeatStep, stepMs);
 }
 function stopBeat() {
-  if (beatInterval) { clearInterval(beatInterval); beatInterval = null; }
+  if (beatInterval) { clearTimeout(beatInterval); beatInterval = null; }
 }
 
 // ─── PRIVACY MODAL ────────────────────────────────────────────────────────────
@@ -456,6 +468,7 @@ document.addEventListener('click', () => {
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let gameMode = 1;
+let totalGameTime = 60; // set at game start — used for last-10% beat calculation
 // Single player hand lock: null = waiting for first detection
 // 'green' = left hand locked in, 'red' = right hand locked in
 let lockedHand = null;
@@ -829,7 +842,8 @@ function processWebcam() {
 
 // ─── TIMER ────────────────────────────────────────────────────────────────────
 function startTimer() {
-  state.timeLeft = 60; updateTimerDisplay();
+  totalGameTime = state.timeLeft; // capture at game start
+  updateTimerDisplay();
   state.timerInterval = setInterval(() => {
     state.timeLeft--; updateTimerDisplay();
     if (state.timeLeft <= 0) endGame();
@@ -909,6 +923,7 @@ async function startGame() {
   bar.style.background = 'var(--green)'; bar.style.boxShadow = '0 0 10px var(--green)';
   document.getElementById('timer-display').style.color = 'var(--amber)';
 
+  stopHum(); // hum only on start screen
   startBeat();
   for (let i=0; i<5; i++) spawnCircle();
   startTimer();
@@ -924,6 +939,7 @@ function endGame() {
 
   if (gameMode === 1 && lockedHand !== null) {
     // Single player: show only the locked hand's result block
+    document.getElementById('results-grid').classList.add('single-player');
     if (lockedHand === 'green') {
       document.getElementById('result-green-block').style.display = 'flex';
       document.getElementById('result-red-block').style.display   = 'none';
@@ -941,6 +957,7 @@ function endGame() {
     }
   } else {
     // 2 player (or edge case: no hand detected in 1P)
+    document.getElementById('results-grid').classList.remove('single-player');
     document.getElementById('result-green-block').style.display = 'flex';
     document.getElementById('result-red-block').style.display   = 'flex';
     document.getElementById('final-green-kills').textContent = state.greenKills;
