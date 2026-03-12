@@ -5,7 +5,7 @@
 <!-- © 2026 Mil Stamenković -->
 <!-- Created with help of Free Claude AI -->
 <!-- Created: 10.03.2026. - Ćuprija, Serbia -->
-<!-- Revised: 11.03.2026. - Ćuprija, Serbia -->
+<!-- Revised: 12.03.2026. - Ćuprija, Serbia -->
 <!-- Published: n/n - n/n -->
 
 
@@ -842,7 +842,8 @@ function processWebcam() {
 
 // ─── TIMER ────────────────────────────────────────────────────────────────────
 function startTimer() {
-  totalGameTime = state.timeLeft; // capture at game start
+  state.timeLeft = 60;            // reset timer for new round
+  totalGameTime = state.timeLeft; // capture total time for last-10% beat calculation
   updateTimerDisplay();
   state.timerInterval = setInterval(() => {
     state.timeLeft--; updateTimerDisplay();
