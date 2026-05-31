@@ -5,8 +5,11 @@
 <!-- © 2026 Mil Stamenković -->
 <!-- Created with help of Free Claude AI -->
 <!-- Created: 05.03.2026. - Ćuprija, Serbia -->
-<!-- Revised: 12.03.2026. - Ćuprija, Serbia -->
+<!-- Revised: 31.05.2026. - Ćuprija, Serbia -->
 <!-- Published: n/n - n/n --> 
+
+
+
 
 
 
@@ -111,6 +114,74 @@
   .privacy-content .highlight { color: var(--green); }
   .privacy-content .warning   { color: var(--amber); }
   #privacy-footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); font-family: 'Share Tech Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.25); letter-spacing: 1px; text-align: center; }
+
+  /* ── IN-GAME HUD BUTTONS ── */
+  #hud-controls {
+    display: none;
+    position: fixed;
+    top: 20px; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 20;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0;
+  }
+  #hud-controls.visible { display: flex; }
+  .hud-ctrl-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px; letter-spacing: 3px;
+    padding: 6px 18px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.55);
+    color: rgba(255,255,255,0.45);
+    cursor: pointer;
+    text-transform: uppercase;
+    pointer-events: all;
+    transition: all 0.15s;
+  }
+  #btn-hud-exit  { border-color: rgba(255,32,32,0.35); color: rgba(255,80,80,0.6); margin-right: 120px; }
+  #btn-hud-finish{ border-color: rgba(0,255,136,0.35); color: rgba(0,255,136,0.6); margin-left: 120px; }
+  #btn-hud-exit:hover   { background: rgba(255,32,32,0.15);  border-color: var(--red);   color: var(--red);   }
+  #btn-hud-finish:hover { background: rgba(0,255,136,0.15);  border-color: var(--green); color: var(--green); }
+  .hud-ctrl-hint { display: none; }
+
+  /* ── CONFIRM OVERLAY ── */
+  #confirm-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.82); backdrop-filter: blur(3px);
+  }
+  #confirm-overlay.hidden { display: none; }
+  #confirm-box {
+    width: min(480px, 88vw);
+    border: 1px solid rgba(255,255,255,0.12);
+    background: #060606;
+    padding: 40px 36px 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+  }
+  #confirm-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(18px, 3vw, 26px);
+    font-weight: 900; letter-spacing: 6px;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  #confirm-title.exit-mode   { color: var(--red);   text-shadow: 0 0 20px var(--red); }
+  #confirm-title.finish-mode { color: var(--green); text-shadow: 0 0 20px var(--green); }
+  #confirm-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 3px;
+    color: rgba(255,255,255,0.35); text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+  #confirm-btns { display: flex; gap: 20px; width: 100%; }
+  #confirm-btns .btn { flex: 1; padding: 14px 0; text-align: center; }
+  #confirm-yes.exit-mode   { border-color: var(--red);   color: var(--red); }
+  #confirm-yes.exit-mode::before   { background: var(--red); }
+  #confirm-yes.exit-mode:hover     { color: #000; }
+  #confirm-yes.finish-mode { border-color: var(--red); color: var(--red); }
+  #confirm-yes.finish-mode::before { background: var(--red); }
+  #confirm-yes.finish-mode:hover   { color: #000; }
+
 </style>
 </head>
 <body>
@@ -140,6 +211,31 @@
     </div>
   </div>
   <div id="timer-bar-container"><div id="timer-bar"></div></div>
+</div>
+
+<!-- In-game HUD control buttons: EXIT left of timer, FINISH right of timer -->
+<div id="hud-controls">
+  <button class="hud-ctrl-btn" id="btn-hud-exit">
+    EXIT/PAUSE (ESC)
+    <span class="hud-ctrl-hint">ESC</span>
+  </button>
+  <button class="hud-ctrl-btn" id="btn-hud-finish">
+    FINISH (ENTER)
+    <span class="hud-ctrl-hint">ENTER</span>
+  </button>
+</div>
+
+<!-- Confirmation overlay -->
+<div id="confirm-overlay" class="hidden">
+  <div id="confirm-box">
+		<div class="exit-mode" style="font-style:italic;">Game is Paused</div>
+    <div id="confirm-title" class="exit-mode">EXIT GAME?</div>
+    <div id="confirm-sub">Game is paused</div>
+    <div id="confirm-btns">
+      <button class="btn" id="confirm-yes">YES, EXIT (ENTER)</button>
+      <button class="btn" id="confirm-no">CANCEL<br>(ESC)</button>
+    </div>
+  </div>
 </div>
 
 <!-- Camera preview -->
@@ -427,7 +523,7 @@ function startBeat() {
 }
 
 function scheduleBeatStep() {
-  if (!state.running) return;
+  if (!state.running || state.paused) return;
   // Determine BPM: last 10% of total game time = turbo mode
   const threshold = Math.ceil(totalGameTime * 0.1); // last 10% of total time
   const inTurbo = state.timeLeft > 0 && state.timeLeft <= threshold;
@@ -474,7 +570,7 @@ let totalGameTime = 60; // set at game start — used for last-10% beat calculat
 let lockedHand = null;
 
 const state = {
-  running: false, timeLeft: 60,
+  running: false, paused: false, timeLeft: 60,
   greenKills: 0, redKills: 0,
   circles: [],
   leftX: -1, leftY: -1,
@@ -665,7 +761,7 @@ function drawGrid() {
 
 // ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 function loop(ts) {
-  if (!state.running) return;
+  if (!state.running || state.paused) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid();
@@ -867,6 +963,91 @@ function updateScoreDisplay() {
 }
 
 // ─── GAME CONTROL ─────────────────────────────────────────────────────────────
+
+let confirmMode = null; // 'exit' or 'finish'
+
+function pauseGame() {
+  if (!state.running || state.paused) return;
+  state.paused = true;
+  clearInterval(state.timerInterval);
+  // beat scheduler self-checks paused flag and stops scheduling
+}
+
+function resumeGame() {
+  if (!state.running || !state.paused) return;
+  state.paused = false;
+  // restart timer interval
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--; updateTimerDisplay();
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+  // restart beat scheduler
+  scheduleBeatStep();
+  // restart render loop
+  requestAnimationFrame(loop);
+}
+
+function showConfirm(mode) {
+  confirmMode = mode;
+  pauseGame();
+  const overlay  = document.getElementById('confirm-overlay');
+  const title    = document.getElementById('confirm-title');
+  const yesBtn   = document.getElementById('confirm-yes');
+  if (mode === 'exit') {
+    title.textContent = 'EXIT GAME?';
+    title.className   = 'exit-mode';
+    yesBtn.textContent = 'YES, EXIT\n(ENTER)';
+    yesBtn.className  = 'btn exit-mode';
+    document.getElementById('confirm-sub').textContent = 'Progress will be lost';
+  } else {
+    title.textContent = 'FINISH NOW?';
+    title.className   = 'finish-mode';
+    yesBtn.textContent = 'YES, FINISH\n(ENTER)';
+    yesBtn.className  = 'btn finish-mode';
+    document.getElementById('confirm-sub').textContent = 'Current score will be shown';
+  }
+  overlay.classList.remove('hidden');
+}
+
+function hideConfirm() {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  confirmMode = null;
+  resumeGame();
+}
+
+function confirmYes() {
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  if (confirmMode === 'exit') {
+    // Stop everything, go to start screen
+    state.running = false;
+    state.paused  = false;
+    clearInterval(state.timerInterval);
+    cancelAnimationFrame(state.gameLoop);
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+    stopBeat();
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('hud-controls').classList.remove('visible');
+    document.getElementById('start-screen').classList.remove('hidden');
+    document.getElementById('results-screen').classList.add('hidden');
+    // Restart hum for start screen
+    humStarted = false;
+    startHum();
+  } else {
+    // Finish: run endGame with current score
+    state.paused = false;
+    state.running = false;
+    clearInterval(state.timerInterval);
+    cancelAnimationFrame(state.gameLoop);
+    if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+    stopBeat();
+    document.getElementById('hud-controls').classList.remove('visible');
+    // Populate results (reuse endGame logic)
+    endGame();
+  }
+  confirmMode = null;
+}
+
 async function startGame() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:640, height:480 } });
@@ -925,6 +1106,7 @@ async function startGame() {
   document.getElementById('timer-display').style.color = 'var(--amber)';
 
   stopHum(); // hum only on start screen
+  document.getElementById('hud-controls').classList.add('visible');
   startBeat();
   for (let i=0; i<5; i++) spawnCircle();
   startTimer();
@@ -933,10 +1115,12 @@ async function startGame() {
 
 function endGame() {
   state.running = false;
+  state.paused  = false;
   clearInterval(state.timerInterval);
   cancelAnimationFrame(state.gameLoop);
   if (state.stream) state.stream.getTracks().forEach(t=>t.stop());
   stopBeat();
+  document.getElementById('hud-controls').classList.remove('visible');
 
   if (gameMode === 1 && lockedHand !== null) {
     // Single player: show only the locked hand's result block
@@ -978,6 +1162,30 @@ function endGame() {
 document.getElementById('btn-1p').addEventListener('click', () => { gameMode = 1; startGame(); });
 document.getElementById('btn-2p').addEventListener('click', () => { gameMode = 2; startGame(); });
 document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// In-game HUD buttons
+document.getElementById('btn-hud-exit').addEventListener('click',   () => { if (state.running) showConfirm('exit'); });
+document.getElementById('btn-hud-finish').addEventListener('click', () => { if (state.running) showConfirm('finish'); });
+
+// Confirm overlay buttons
+document.getElementById('confirm-yes').addEventListener('click', confirmYes);
+document.getElementById('confirm-no').addEventListener('click',  hideConfirm);
+
+// Keyboard: ESC = exit confirm or cancel, ENTER = finish confirm or confirm yes
+document.addEventListener('keydown', (e) => {
+  const overlay = document.getElementById('confirm-overlay');
+  const overlayVisible = !overlay.classList.contains('hidden');
+
+  if (overlayVisible) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmYes(); }
+    if (e.key === 'Escape') { e.preventDefault(); hideConfirm(); }
+    return;
+  }
+
+  if (!state.running || state.paused) return;
+  if (e.key === 'Escape') { e.preventDefault(); showConfirm('exit'); }
+  if (e.key === 'Enter')  { e.preventDefault(); showConfirm('finish'); }
+});
 </script>
 </body>
 </html>
